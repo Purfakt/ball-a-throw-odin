@@ -121,12 +121,7 @@ draw_MS_Menu :: proc(dt: f32) {
 //     GAME
 // ------------
 
-DECK_POSITION :: rl.Vector2{-100, -100}
-DEAL_DELAY :: 0.05
-
-JIGGLE_DURATION :: 0.4
-JIGGLE_STRENGTH :: 10.0
-JIGGLE_FREQUENCY :: 50.0
+MAX_SELECTED :: 5
 
 MS_Game :: struct {
 	gs:                    GameSate,
@@ -200,21 +195,21 @@ get_card_target_layout :: proc(ms: ^MS_Game, i: i32) -> (layout: CardLayout, han
 	h := i32(rl.GetScreenHeight())
 	center_w := w / 2
 	hand_size := ms.hand.len
-	hand_w := (CardWidth * hand_size) + (CardMargin * (hand_size - 1))
+	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
 	start_x := center_w - (hand_w / 2)
 
-	base_x := start_x + i * (CardWidth + CardMargin)
-	base_y := h - CardMargin - CardHeight
+	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
+	base_y := h - CARD_MARGIN - CARD_HEIGHT
 
 	final_x := f32(base_x)
 	final_y := f32(base_y)
 	if is_selected {
-		final_y -= f32(CardHeight) / 5.0
+		final_y -= f32(CARD_HEIGHT) / 5.0
 	}
 
-	layout.target_rect = {final_x, final_y, f32(CardWidth), f32(CardHeight)}
+	layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
 	layout.target_rotation = 0
-	layout.font_size = CardRankFontSize
+	layout.font_size = CARD_FONT_SIZE
 	layout.color = rl.LIGHTGRAY
 
 	if ms.hovered_card == handle {
@@ -235,9 +230,9 @@ draw_MS_Game :: proc(dt: f32) {
 		_, card_handle := get_card_target_layout(&ms, i)
 		card_instance := sds.pool_get_ptr_safe(&ms.deck, card_handle) or_continue
 
-		scaled_w := f32(CardWidth)
-		scaled_h := f32(CardHeight)
-		font_size := f32(CardRankFontSize)
+		scaled_w := f32(CARD_WIDTH)
+		scaled_h := f32(CARD_HEIGHT)
+		font_size := f32(CARD_FONT_SIZE)
 
 		card_dest_rect := rl.Rectangle {
 			x      = card_instance.position.x + scaled_w / 2,
@@ -321,7 +316,7 @@ update_MS_Game :: proc(dt: f32) {
 				if rl.IsMouseButtonPressed(.LEFT) {
 					if pile_contains(&ms.selected_cards, card_handle) {
 						pile_remove_handle(&ms.selected_cards, card_handle)
-					} else {
+					} else if ms.selected_cards.len < MAX_SELECTED {
 						sds.array_push(&ms.selected_cards, card_handle)
 					}
 				}

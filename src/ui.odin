@@ -1,6 +1,13 @@
 package game
 
-CardWidth :: i32(60)
-CardHeight :: i32(100)
-CardMargin :: i32(30)
-CardRankFontSize :: 40
+CARD_WIDTH :: i32(60)
+CARD_HEIGHT :: i32(100)
+CARD_MARGIN :: i32(30)
+CARD_FONT_SIZE :: 40
+
+DECK_POSITION :: [2]f32{-100, -100}
+DEAL_DELAY :: 0.05
+
+JIGGLE_DURATION :: 0.4
+JIGGLE_STRENGTH :: 10.0
+JIGGLE_FREQUENCY :: 50.0
