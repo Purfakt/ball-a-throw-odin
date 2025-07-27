@@ -80,9 +80,10 @@ CardData :: struct {
 }
 
 CardInstance :: struct {
-	data:     CardData,
-	position: [2]f32,
-	rotation: f32,
+	data:         CardData,
+	position:     [2]f32,
+	rotation:     f32,
+	jiggle_timer: f32,
 }
 
 
@@ -93,7 +94,12 @@ CardHandle :: distinct sds.Handle(i64, i64)
 
 
 new_card :: proc(rank: Rank, suite: Suite) -> CardInstance {
-	return CardInstance{data = CardData{rank, suite}, position = {}, rotation = 0}
+	return CardInstance {
+		data = CardData{rank, suite},
+		position = {},
+		rotation = 0,
+		jiggle_timer = 0,
+	}
 }
 
 init_deck :: proc() -> Deck {

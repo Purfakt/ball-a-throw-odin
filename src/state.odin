@@ -2,6 +2,7 @@ package game
 
 import "core:fmt"
 import "core:log"
+import "core:math/linalg"
 import "sds"
 import rl "vendor:raylib"
 
@@ -120,14 +121,21 @@ draw_MS_Menu :: proc(dt: f32) {
 //     GAME
 // ------------
 
+DECK_POSITION :: rl.Vector2{-100, -100}
+DEAL_DELAY :: 0.05
+
+JIGGLE_DURATION :: 0.4
+JIGGLE_STRENGTH :: 10.0
+JIGGLE_FREQUENCY :: 50.0
+
 MS_Game :: struct {
-	gs:             GameSate,
-	deck:           Deck,
-	draw_pile:      Pile,
-	hand:           Pile,
-	// UI
-	selected_cards: Pile,
-	hovered_card:   CardHandle,
+	gs:                    GameSate,
+	deck:                  Deck,
+	draw_pile:             Pile,
+	hand:                  Pile,
+	selected_cards:        Pile,
+	hovered_card:          CardHandle,
+	previous_hovered_card: CardHandle,
 }
 
 GameSate :: union {
@@ -135,13 +143,35 @@ GameSate :: union {
 	GS_Playing,
 }
 
-GS_DrawingCards :: struct {}
+GS_DrawingCards :: struct {
+	deal_timer: f32,
+	deal_index: i32,
+}
+
 GS_Playing :: struct {}
 
 CardLayout :: struct {
-	final_rect: rl.Rectangle,
-	color:      rl.Color,
-	font_size:  i32,
+	target_rect:     rl.Rectangle,
+	target_rotation: f32,
+	color:           rl.Color,
+	font_size:       i32,
+}
+
+next_hand :: proc(ms: ^MS_Game) {
+	empty_pile(&ms.hand)
+	empty_pile(&ms.selected_cards)
+	draw_cards_into(&ms.draw_pile, &ms.hand, 8)
+
+	for i := i32(0); i < ms.hand.len; i += 1 {
+		handle := sds.array_get(ms.hand, i)
+		card := sds.pool_get_ptr_safe(&ms.deck, handle) or_continue
+		card.position = DECK_POSITION
+	}
+
+	ms.gs = GS_DrawingCards {
+		deal_timer = 0,
+		deal_index = 0,
+	}
 }
 
 init_MS_Game :: proc() -> MainState {
@@ -149,26 +179,22 @@ init_MS_Game :: proc() -> MainState {
 	deck := init_deck()
 	draw_pile := init_drawing_pile(&deck)
 
-	return MainState {
+	state := MainState {
 		ms = MS_Game{deck = deck, draw_pile = draw_pile, gs = GS_DrawingCards{}},
 		draw = draw_MS_Game,
 		update = update_MS_Game,
 	}
+
+	next_hand(&state.ms.(MS_Game))
+
+	return state
 }
 
-get_card_layout :: proc(ms: ^MS_Game, i: i32) -> (layout: CardLayout, handle: CardHandle) {
+get_card_target_layout :: proc(ms: ^MS_Game, i: i32) -> (layout: CardLayout, handle: CardHandle) {
 	handle = sds.array_get(ms.hand, i)
 
 	is_selected := pile_contains(&ms.selected_cards, handle)
-	is_hovered := ms.hovered_card == handle
 
-	scale: f32 = 1.0
-	if is_selected || is_hovered {
-		scale = 1.3
-	}
-
-	scaled_w := f32(CardWidth) * scale
-	scaled_h := f32(CardHeight) * scale
 
 	w := i32(rl.GetScreenWidth())
 	h := i32(rl.GetScreenHeight())
@@ -180,13 +206,18 @@ get_card_layout :: proc(ms: ^MS_Game, i: i32) -> (layout: CardLayout, handle: Ca
 	base_x := start_x + i * (CardWidth + CardMargin)
 	base_y := h - CardMargin - CardHeight
 
-	final_x := f32(base_x) - (scaled_w - f32(CardWidth)) / 2
-	final_y := f32(base_y) - (scaled_h - f32(CardHeight))
+	final_x := f32(base_x)
+	final_y := f32(base_y)
+	if is_selected {
+		final_y -= f32(CardHeight) / 5.0
+	}
 
-	layout.final_rect = {final_x, final_y, scaled_w, scaled_h}
-	layout.font_size = i32(scale * f32(CardRankFontSize))
+	layout.target_rect = {final_x, final_y, f32(CardWidth), f32(CardHeight)}
+	layout.target_rotation = 0
+	layout.font_size = CardRankFontSize
 	layout.color = rl.LIGHTGRAY
-	if is_hovered {
+
+	if ms.hovered_card == handle {
 		layout.color = rl.WHITE
 	}
 
@@ -195,33 +226,56 @@ get_card_layout :: proc(ms: ^MS_Game, i: i32) -> (layout: CardLayout, handle: Ca
 
 draw_MS_Game :: proc(dt: f32) {
 	ms := gm.state.ms.(MS_Game)
-	gs := ms.gs
 
 	rl.ClearBackground(rl.BLACK)
 	rank_string := RankString
 	suite_color := SuiteColor
 
-	switch state in gs {
-	case GS_DrawingCards:
-		break
-	case GS_Playing:
-		for i := i32(0); i < ms.hand.len; i += 1 {
-			layout, handle := get_card_layout(&ms, i)
-			card := sds.pool_get_ptr_safe(&ms.deck, handle) or_continue
+	for i := i32(0); i < ms.hand.len; i += 1 {
+		_, card_handle := get_card_target_layout(&ms, i)
+		card_instance := sds.pool_get_ptr_safe(&ms.deck, card_handle) or_continue
 
-			rl.DrawRectangleRec(layout.final_rect, layout.color)
+		scaled_w := f32(CardWidth)
+		scaled_h := f32(CardHeight)
+		font_size := f32(CardRankFontSize)
 
-			rank_text := fmt.ctprintf("%v", rank_string[card.data.rank])
-			rank_text_width := rl.MeasureText(rank_text, layout.font_size)
-
-			rl.DrawText(
-				rank_text,
-				i32(layout.final_rect.x + layout.final_rect.width / 2) - rank_text_width / 2,
-				i32(layout.final_rect.y + layout.final_rect.height / 2) - layout.font_size / 2,
-				layout.font_size,
-				rl.Color(suite_color[card.data.suite]),
-			)
+		card_dest_rect := rl.Rectangle {
+			x      = card_instance.position.x + scaled_w / 2,
+			y      = card_instance.position.y + scaled_h / 2,
+			width  = scaled_w,
+			height = scaled_h,
 		}
+
+		card_origin := rl.Vector2{scaled_w / 2, scaled_h / 2}
+
+		rl.DrawRectanglePro(card_dest_rect, card_origin, card_instance.rotation, rl.LIGHTGRAY)
+
+
+		if font_size <= 1 {continue}
+
+		card_center := rl.Vector2 {
+			card_instance.position.x + scaled_w / 2,
+			card_instance.position.y + scaled_h / 2,
+		}
+
+		rank_text := fmt.ctprintf("%v", rank_string[card_instance.data.rank])
+		text_size := rl.MeasureTextEx(rl.GetFontDefault(), rank_text, font_size, 1)
+
+		text_position := rl.Vector2 {
+			card_center.x - text_size.x / 2,
+			card_center.y - text_size.y / 2,
+		}
+
+		rl.DrawTextPro(
+			rl.GetFontDefault(),
+			rank_text,
+			text_position,
+			{},
+			card_instance.rotation,
+			font_size,
+			1.0,
+			rl.Color(suite_color[card_instance.data.suite]),
+		)
 	}
 }
 
@@ -234,27 +288,34 @@ update_MS_Game :: proc(dt: f32) {
 
 	mouse_pos := rl.GetMousePosition()
 
-	switch state in gs {
+	switch &state in gs {
 	case GS_DrawingCards:
-		empty_pile(&ms.hand)
-		empty_pile(&ms.selected_cards)
-		ms.hovered_card = {}
-
-		draw_cards_into(&ms.draw_pile, &ms.hand, 8)
-		ms.gs = GS_Playing{}
-		break
-	case GS_Playing:
-		if rl.IsKeyPressed(.R) {
-			ms.gs = GS_DrawingCards{}
-			return
+		state.deal_timer -= dt
+		if state.deal_timer <= 0 {
+			state.deal_timer = DEAL_DELAY
+			if state.deal_index < ms.hand.len {
+				state.deal_index += 1
+			}
 		}
 
+		if ms.hand.len > 0 && state.deal_index >= ms.hand.len {
+			last_card_handle := sds.array_get(ms.hand, ms.hand.len - 1)
+			last_card_instance := sds.pool_get_ptr_safe(&ms.deck, last_card_handle) or_break
+
+			target_layout, _ := get_card_target_layout(ms, i32(ms.hand.len - 1))
+			target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
+
+			if rl.Vector2Distance(last_card_instance.position, target_pos) < 1.0 {
+				ms.gs = GS_Playing{}
+			}
+		}
+	case GS_Playing:
 		ms.hovered_card = {}
 
 		for i := ms.hand.len - 1; i >= 0; i -= 1 {
-			layout, card_handle := get_card_layout(ms, i)
+			target_layout, card_handle := get_card_target_layout(ms, i)
 
-			if rl.CheckCollisionPointRec(mouse_pos, layout.final_rect) {
+			if rl.CheckCollisionPointRec(mouse_pos, target_layout.target_rect) {
 				ms.hovered_card = card_handle
 
 				if rl.IsMouseButtonPressed(.LEFT) {
@@ -267,6 +328,51 @@ update_MS_Game :: proc(dt: f32) {
 				break
 			}
 		}
+
+		if ms.hovered_card != ms.previous_hovered_card && ms.hovered_card != {} {
+			card := sds.pool_get_ptr_safe(&ms.deck, ms.hovered_card) or_break
+			card.jiggle_timer = JIGGLE_DURATION
+		}
+
+		if rl.IsKeyPressed(.R) {
+			next_hand(ms)
+			return
+		}
 		break
+	}
+
+	animation_speed: f32 = 10.0
+	for i := i32(0); i < ms.hand.len; i += 1 {
+		handle := sds.array_get(ms.hand, i)
+		card_instance := sds.pool_get_ptr_safe(&ms.deck, handle) or_continue
+
+		target_layout, _ := get_card_target_layout(ms, i)
+		target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
+
+		current_target_pos := target_pos
+		if state, ok := &gs.(GS_DrawingCards); ok && i >= state.deal_index {
+			current_target_pos = DECK_POSITION
+		}
+
+		target_rot: f32 = 0
+		if card_instance.jiggle_timer > 0 {
+			card_instance.jiggle_timer -= dt
+
+			jiggle_phase := (JIGGLE_DURATION - card_instance.jiggle_timer) * JIGGLE_FREQUENCY
+			target_rot = linalg.sin(jiggle_phase) * JIGGLE_STRENGTH
+
+			target_rot *= (card_instance.jiggle_timer / JIGGLE_DURATION)
+		}
+
+		card_instance.position = linalg.lerp(
+			card_instance.position,
+			current_target_pos,
+			animation_speed * dt,
+		)
+		card_instance.rotation = linalg.lerp(
+			card_instance.rotation,
+			target_rot,
+			animation_speed * dt,
+		)
 	}
 }
