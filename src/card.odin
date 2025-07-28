@@ -3,7 +3,7 @@ package game
 import "core:math/rand"
 import "core:slice"
 import "core:testing"
-import "sds"
+import hm "handle_map"
 
 Rank :: enum {
 	Ace,
@@ -205,11 +205,11 @@ CardInstance :: struct {
 	jiggle_timer: f32,
 }
 
-Deck :: sds.Pool(1024, CardInstance, CardHandle)
-Pile :: sds.Array(1024, CardHandle)
-ScoringPile :: sds.Array(5, CardHandle)
+Deck :: hm.Handle_Map(CardInstance, CardHandle, 1024)
+Pile :: [dynamic]CardHandle
+ScoringPile :: [dynamic]CardHandle
 
-CardHandle :: distinct sds.Handle(i64, i64)
+CardHandle :: distinct hm.Handle
 
 new_card :: proc(rank: Rank, suite: Suite) -> CardInstance {
 	return CardInstance {
@@ -225,8 +225,8 @@ init_deck :: proc() -> Deck {
 
 	for suite in SUITES {
 		for rank in RANKS {
-			handle := sds.pool_push(&deck, new_card(rank, suite))
-			card := sds.pool_get_ptr_safe(&deck, handle)
+			handle := hm.add(&deck, new_card(rank, suite))
+			card := hm.get(&deck, handle)
 			card.handle = handle
 		}
 	}
@@ -234,37 +234,34 @@ init_deck :: proc() -> Deck {
 	return deck
 }
 
-init_drawing_pile :: proc(deck: ^Deck) -> Pile {
-	draw_pile := Pile{}
+init_drawing_pile :: proc(deck: ^Deck, draw_pile: ^Pile) {
+	iter := hm.make_iter(deck)
 
-	for i in 1 ..= deck.max_index {
-		_, handle := sds.pool_index_get_ptr_safe(deck, i) or_continue
-		sds.array_push(&draw_pile, handle)
+	for _, h in hm.iter(&iter) {
+		append(draw_pile, h)
 	}
 
-	rand.shuffle(draw_pile.data[:draw_pile.len])
-
-	return draw_pile
+	rand.shuffle(draw_pile[:])
 }
 
 draw_cards_into :: proc(from: ^Pile, to: ^Pile, draw_amount: i32) {
-	pile_len := from.len
+	pile_len := i32(len(from))
 	max_amount := min(pile_len, draw_amount)
 
 	for i := i32(0); i < max_amount; i += 1 {
-		card := sds.array_pop_back(from)
-		sds.array_push(to, card)
+		card := pop_safe(from) or_break
+		append(to, card)
 	}
 }
 
 empty_pile :: proc(pile: ^Pile) {
-	for pile.len > 0 {
-		_ = sds.array_pop_back_safe(pile) or_break
+	for len(pile) > 0 {
+		_ = pop_safe(pile) or_break
 	}
 }
 
-handle_array_contains :: proc(pile: ^$A/sds.Array($N, CardHandle), handle: CardHandle) -> bool {
-	for h in sds.array_slice(pile) {
+handle_array_contains :: proc(pile: Pile, handle: CardHandle) -> bool {
+	for h in pile[:] {
 		if h == handle {
 			return true
 		}
@@ -272,13 +269,10 @@ handle_array_contains :: proc(pile: ^$A/sds.Array($N, CardHandle), handle: CardH
 	return false
 }
 
-handle_array_remove_handle :: proc(
-	pile: ^$A/sds.Array($N, CardHandle),
-	handle: CardHandle,
-) -> bool {
-	for &h, i in sds.array_slice(pile) {
+handle_array_remove_handle :: proc(pile: ^Pile, handle: CardHandle) -> bool {
+	for &h, i in pile[:] {
 		if h == handle {
-			sds.array_remove(pile, i)
+			ordered_remove(pile, i)
 			return true
 		}
 	}
@@ -419,14 +413,14 @@ evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) 
 	#partial switch hand.hand_type {
 	case .Straight, .Flush, .StraightFlush, .RoyalFlush, .FullHouse, .FlushHouse, .FlushFive:
 		for card in cards {
-			sds.array_push(&hand.scoring_handles, card.handle)
+			append(&hand.scoring_handles, card.handle)
 		}
 	case .HighCard:
 		slice.sort_by(
 			cards[:],
 			proc(lhs, rhs: CardInstance) -> bool {return lhs.data.rank > rhs.data.rank},
 		)
-		sds.array_push(&hand.scoring_handles, cards[0].handle)
+		append(&hand.scoring_handles, cards[0].handle)
 	case:
 		rank_counts := make(map[Rank]u8)
 		defer delete(rank_counts)
@@ -450,7 +444,7 @@ evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) 
 
 		for card in cards {
 			if slice.contains(scoring_ranks[:], card.data.rank) {
-				sds.array_push(&hand.scoring_handles, card.handle)
+				append(&hand.scoring_handles, card.handle)
 			}
 		}
 	}
@@ -462,10 +456,14 @@ evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) 
 @(test)
 test_draw :: proc(t: ^testing.T) {
 	deck := init_deck()
-	draw_pile := init_drawing_pile(&deck)
-	hand := Pile{}
 
-	for draw_pile.len > 0 {
+	draw_pile := make(Pile)
+	defer delete(draw_pile)
+	init_drawing_pile(&deck, &draw_pile)
+	hand := make(Pile)
+	defer delete(hand)
+
+	for len(draw_pile) > 0 {
 		draw_cards_into(&draw_pile, &hand, 5)
 	}
 }
