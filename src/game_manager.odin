@@ -73,6 +73,7 @@ game_update :: proc() {
 	dt := rl.GetFrameTime()
 	update(dt)
 	draw(dt)
+	free_all(context.temp_allocator)
 }
 
 @(export)

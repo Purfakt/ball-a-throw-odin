@@ -5,10 +5,12 @@ For making a release exe that does not use hot reload.
 package main_release
 
 import "core:log"
+import "core:mem"
 import "core:os"
 import "core:path/filepath"
 
 import game "../.."
+_ :: mem
 
 USE_TRACKING_ALLOCATOR :: #config(USE_TRACKING_ALLOCATOR, false)
 
@@ -18,13 +20,6 @@ main :: proc() {
 	exe_path := os.args[0]
 	exe_dir := filepath.dir(string(exe_path), context.temp_allocator)
 	os.set_current_directory(exe_dir)
-
-	when USE_TRACKING_ALLOCATOR {
-		default_allocator := context.allocator
-		tracking_allocator: Tracking_Allocator
-		tracking_allocator_init(&tracking_allocator, default_allocator)
-		context.allocator = allocator_from_tracking_allocator(&tracking_allocator)
-	}
 
 	mode: int = 0
 	when ODIN_OS == .Linux || ODIN_OS == .Darwin {
@@ -38,42 +33,39 @@ main :: proc() {
 		os.stderr = logh
 	}
 
+	logger_alloc := context.allocator
 	logger :=
-		// logh_err == os.ERROR_NONE ? log.create_file_logger(logh) : log.create_console_logger()
-		log.create_console_logger()
+		logh_err == os.ERROR_NONE ? log.create_file_logger(logh, allocator = logger_alloc) : log.create_console_logger(allocator = logger_alloc)
 	context.logger = logger
+
+	when USE_TRACKING_ALLOCATOR {
+		default_allocator := context.allocator
+		tracking_allocator: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&tracking_allocator, default_allocator)
+		context.allocator = mem.tracking_allocator(&tracking_allocator)
+	}
 
 	game.game_init_window()
 	game.game_init()
 
 	for game.game_should_run() {
 		game.game_update()
-
-		when USE_TRACKING_ALLOCATOR {
-			for b in tracking_allocator.bad_free_array {
-				log.error("Bad free at: %v", b.location)
-			}
-
-			clear(&tracking_allocator.bad_free_array)
-		}
-
-		free_all(context.temp_allocator)
 	}
 
 	free_all(context.temp_allocator)
 	game.game_shutdown()
 	game.game_shutdown_window()
 
-	if logh_err == os.ERROR_NONE {
-		log.destroy_file_logger(logger)
-	}
-
 	when USE_TRACKING_ALLOCATOR {
-		for key, value in tracking_allocator.allocation_map {
-			log.error("%v: Leaked %v bytes\n", value.location, value.size)
+		for _, value in tracking_allocator.allocation_map {
+			log.errorf("%v: Leaked %v bytes\n", value.location, value.size)
 		}
 
-		tracking_allocator_destroy(&tracking_allocator)
+		mem.tracking_allocator_destroy(&tracking_allocator)
+	}
+
+	if logh_err == os.ERROR_NONE {
+		log.destroy_file_logger(logger, logger_alloc)
 	}
 }
 

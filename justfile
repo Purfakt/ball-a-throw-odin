@@ -79,7 +79,7 @@ web:
     # up in env.o
     #
     # Note that there is a rayGUI equivalent: -define:RAYGUI_WASM_LIB=env.o
-    odin build {{SRC}}/main/web -target:js_wasm32 -build-mode:obj -define:RAYLIB_WASM_LIB=env.o -define:RAYGUI_WASM_LIB=env.o -vet -strict-style -out:$OUT_DIR/game
+    odin build {{SRC}}/main/web -target:js_wasm32 -build-mode:obj -define:RAYLIB_WASM_LIB=env.o -define:RAYGUI_WASM_LIB=env.o -vet -strict-style -out:$OUT_DIR/game.wasm.o
 
     ODIN_PATH=$(odin root)
 
