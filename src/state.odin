@@ -342,7 +342,11 @@ get_card_table_target_layout :: proc(
 }
 
 draw_MS_Game :: proc(dt: f32) {
-	ms := gm.state.ms.(MS_Game)
+	ms, game_ok := gm.state.ms.(MS_Game)
+
+	if !game_ok {
+		return
+	}
 
 	rl.ClearBackground(rl.BLACK)
 
@@ -521,7 +525,13 @@ update_MS_Game :: proc(dt: f32) {
 	if gm.state.in_transition {
 		return
 	}
-	ms := &gm.state.ms.(MS_Game)
+
+	ms, game_ok := &gm.state.ms.(MS_Game)
+
+	if !game_ok {
+		return
+	}
+
 	gs := &ms.gs
 
 	mouse_pos := rl.GetMousePosition()
@@ -641,7 +651,6 @@ update_MS_Game :: proc(dt: f32) {
 			if state.scoring_index < ms.played_pile.len {
 				card_handle := sds.array_get(ms.played_pile, state.scoring_index)
 				contains := handle_array_contains(&ms.scoring_cards_handles, card_handle)
-				log.info(state.scoring_index, &ms.scoring_cards_handles, card_handle)
 				if contains {
 					card_data := sds.pool_get(ms.deck, card_handle).data
 					state.current_chips += i64(rank_chip[card_data.rank])

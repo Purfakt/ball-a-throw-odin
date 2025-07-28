@@ -28,7 +28,7 @@ hr:
     # which the game will load before it is actually fully written.
     mv $TEMP_DLL $OUT_DIR/game.so
 
-    # If the executable is already running, then don't try to build and start it.
+    # If the executable is already running, then dont try to build and start it.
     # -f is there to make sure we match against full name, including .bin
     if pgrep -f $EXE > /dev/null; then
         echo "Hot reloading..."
@@ -89,7 +89,7 @@ web:
 
     # index_template.html contains the javascript code that calls the procedures in
     # src/main/web.odin
-    flags="-sUSE_GLFW=3 -sWASM_BIGINT -sWARN_ON_UNDEFINED_SYMBOLS=0 -sASSERTIONS --shell-file {{SRC}}/main/web/index_template.html --preload-file assets"
+    flags="-sUSE_GLFW=3 -sWASM_BIGINT -sWARN_ON_UNDEFINED_SYMBOLS=0 -sASSERTIONS -sSTACK_SIZE=4194304 --shell-file {{SRC}}/main/web/index_template.html --preload-file assets -g"
 
     # For debugging: Add `-g` to `emcc` (gives better error callstack in chrome)
     emcc -o $OUT_DIR/index.html $files $flags
