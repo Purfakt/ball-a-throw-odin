@@ -126,19 +126,21 @@ MAX_SELECTED :: 5
 BASE_DRAW_AMOUNT :: 8
 
 MS_Game :: struct {
-	gs:                    GameSate,
-	deck:                  Deck,
-	current_mult:          i64,
-	current_chip:          i64,
-	current_score:         i128,
-	draw_pile:             Pile,
-	discard_pile:          Pile,
-	played_pile:           Pile,
-	hand_pile:             Pile,
-	selected_cards:        Pile,
-	hovered_card:          CardHandle,
-	previous_hovered_card: CardHandle,
-	selected_hand:         Hand,
+	gs:                           GameSate,
+	deck:                         Deck,
+	current_mult:                 i64,
+	current_chip:                 i64,
+	current_score:                i128,
+	draw_pile:                    Pile,
+	discard_pile:                 Pile,
+	played_pile:                  Pile,
+	hand_pile:                    Pile,
+	selected_cards:               Pile,
+	has_refreshed_selected_cards: bool,
+	hovered_card:                 CardHandle,
+	previous_hovered_card:        CardHandle,
+	selected_hand:                HandType,
+	scoring_cards_handles:        ScoringPile,
 }
 
 GameSate :: union {
@@ -221,7 +223,7 @@ play_selected_cards :: proc(ms: ^MS_Game) {
 
 	for i := ms.hand_pile.len - 1; i >= 0; i -= 1 {
 		handle := sds.array_get(ms.hand_pile, i)
-		if pile_contains(&ms.selected_cards, handle) {
+		if handle_array_contains(&ms.selected_cards, handle) {
 			sds.array_remove(&ms.hand_pile, i)
 			sds.array_push(&ms.played_pile, handle)
 		}
@@ -246,7 +248,7 @@ discard_selected_cards :: proc(ms: ^MS_Game) {
 
 	for i := ms.hand_pile.len - 1; i >= 0; i -= 1 {
 		handle := sds.array_get(ms.hand_pile, i)
-		if pile_contains(&ms.selected_cards, handle) {
+		if handle_array_contains(&ms.selected_cards, handle) {
 			sds.array_remove(&ms.hand_pile, i)
 			sds.array_push(&ms.discard_pile, handle)
 		}
@@ -277,7 +279,7 @@ get_card_hand_target_layout :: proc(
 ) {
 	handle = sds.array_get(ms.hand_pile, i)
 
-	is_selected := pile_contains(&ms.selected_cards, handle)
+	is_selected := handle_array_contains(&ms.selected_cards, handle)
 
 
 	w := i32(rl.GetScreenWidth())
@@ -402,6 +404,7 @@ draw_MS_Game :: proc(dt: f32) {
 	for i := i32(0); i < ms.played_pile.len; i += 1 {
 		_, card_handle := get_card_table_target_layout(&ms, i)
 		card_instance := sds.pool_get_ptr_safe(&ms.deck, card_handle) or_continue
+		is_scoring := handle_array_contains(&ms.scoring_cards_handles, card_handle)
 
 		card_width := f32(CARD_WIDTH)
 		card_height := f32(CARD_HEIGHT)
@@ -416,7 +419,12 @@ draw_MS_Game :: proc(dt: f32) {
 
 		card_origin := rl.Vector2{card_width / 2, card_height / 2}
 
-		rl.DrawRectanglePro(card_dest_rect, card_origin, card_instance.rotation, rl.LIGHTGRAY)
+		color := rl.DARKGRAY
+		if is_scoring {
+			color = rl.LIGHTGRAY
+		}
+
+		rl.DrawRectanglePro(card_dest_rect, card_origin, card_instance.rotation, color)
 
 
 		if font_size <= 1 {continue}
@@ -451,7 +459,11 @@ draw_MS_Game :: proc(dt: f32) {
 				width  = card_width,
 				height = card_height,
 			}
-			rl.DrawRectangleLinesEx(rect, 4, rl.GOLD)
+			highlight_color := rl.DARKBROWN
+			if is_scoring {
+				highlight_color = rl.GOLD
+			}
+			rl.DrawRectangleLinesEx(rect, 4, highlight_color)
 		}
 	}
 
@@ -555,11 +567,12 @@ update_MS_Game :: proc(dt: f32) {
 				ms.hovered_card = card_handle
 
 				if rl.IsMouseButtonPressed(.LEFT) {
-					if pile_contains(&ms.selected_cards, card_handle) {
-						pile_remove_handle(&ms.selected_cards, card_handle)
+					if handle_array_contains(&ms.selected_cards, card_handle) {
+						handle_array_remove_handle(&ms.selected_cards, card_handle)
 					} else if ms.selected_cards.len < MAX_SELECTED {
 						sds.array_push(&ms.selected_cards, card_handle)
 					}
+					ms.has_refreshed_selected_cards = true
 				}
 				break
 			}
@@ -570,22 +583,22 @@ update_MS_Game :: proc(dt: f32) {
 			card.jiggle_timer = JIGGLE_DURATION
 		}
 
-		if ms.selected_cards.len > 0 {
+		if ms.selected_cards.len > 0 && ms.has_refreshed_selected_cards {
+			ms.has_refreshed_selected_cards = false
 			selected_data := slice.mapper(
-				pile_slice(&ms.selected_cards),
-				proc(handle: CardHandle) -> CardData {
+				sds.array_slice(&ms.selected_cards),
+				proc(handle: CardHandle) -> CardInstance {
 					ms := &gm.state.ms.(MS_Game)
-					x := sds.pool_get(ms.deck, handle)
-					return x.data
+					c := sds.pool_get(ms.deck, handle)
+					return c
 				},
 			)
 			defer delete(selected_data)
 
-			if hand, ok := check_hand(selected_data); ok {
-				ms.selected_hand = hand
+			if hand, ok := evaluate_hand(selected_data); ok {
+				ms.selected_hand = hand.hand_type
+				ms.scoring_cards_handles = hand.scoring_handles
 			}
-		} else {
-			ms.selected_hand = .None
 		}
 
 		if rl.IsMouseButtonPressed(.LEFT) {
@@ -636,8 +649,12 @@ update_MS_Game :: proc(dt: f32) {
 
 			if state.scoring_index < ms.played_pile.len {
 				card_handle := sds.array_get(ms.played_pile, state.scoring_index)
-				card_data := sds.pool_get(ms.deck, card_handle).data
-				state.current_chips += i64(rank_chip[card_data.rank])
+				contains := handle_array_contains(&ms.scoring_cards_handles, card_handle)
+				log.info(state.scoring_index, &ms.scoring_cards_handles, card_handle)
+				if contains {
+					card_data := sds.pool_get(ms.deck, card_handle).data
+					state.current_chips += i64(rank_chip[card_data.rank])
+				}
 
 				state.animation_timer = 0.4
 			} else {
