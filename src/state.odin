@@ -215,12 +215,9 @@ play_selected_cards :: proc(ms: ^MS_Game) {
 		return
 	}
 
-	hand_chip := HandChip
-	hand_mult := HandMult
-
 	hand := ms.selected_hand
-	base_chips := i64(hand_chip[hand])
-	base_mult := i64(hand_mult[hand])
+	base_chips := i64(HandChip[hand])
+	base_mult := i64(HandMult[hand])
 
 	for i := ms.hand_pile.len - 1; i >= 0; i -= 1 {
 		handle := sds.array_get(ms.hand_pile, i)
@@ -355,8 +352,6 @@ draw_MS_Game :: proc(dt: f32) {
 	ms := gm.state.ms.(MS_Game)
 
 	rl.ClearBackground(rl.BLACK)
-	rank_string := RankString
-	suite_color := SuiteColor
 
 	for i := i32(0); i < ms.hand_pile.len; i += 1 {
 		_, card_handle := get_card_hand_target_layout(&ms, i)
@@ -384,7 +379,7 @@ draw_MS_Game :: proc(dt: f32) {
 			card_instance.position.y + card_height / 2,
 		}
 
-		rank_text := fmt.ctprintf("%v", rank_string[card_instance.data.rank])
+		rank_text := fmt.ctprintf("%v", RankString[card_instance.data.rank])
 		text_size := rl.MeasureTextEx(rl.GetFontDefault(), rank_text, font_size, 1)
 
 		text_position := rl.Vector2 {
@@ -400,7 +395,7 @@ draw_MS_Game :: proc(dt: f32) {
 			card_instance.rotation,
 			font_size,
 			1.0,
-			rl.Color(suite_color[card_instance.data.suite]),
+			rl.Color(SuiteColor[card_instance.data.suite]),
 		)
 	}
 
@@ -431,7 +426,7 @@ draw_MS_Game :: proc(dt: f32) {
 			card_instance.position.y + card_height / 2,
 		}
 
-		rank_text := fmt.ctprintf("%v", rank_string[card_instance.data.rank])
+		rank_text := fmt.ctprintf("%v", RankString[card_instance.data.rank])
 		text_size := rl.MeasureTextEx(rl.GetFontDefault(), rank_text, font_size, 1)
 
 		text_position := rl.Vector2 {
@@ -447,7 +442,7 @@ draw_MS_Game :: proc(dt: f32) {
 			card_instance.rotation,
 			font_size,
 			1.0,
-			rl.Color(suite_color[card_instance.data.suite]),
+			rl.Color(SuiteColor[card_instance.data.suite]),
 		)
 		if state, ok := ms.gs.(GS_PlayingCards); ok && state.scoring_index == i {
 			rect := rl.Rectangle {
@@ -460,13 +455,12 @@ draw_MS_Game :: proc(dt: f32) {
 		}
 	}
 
-	hand_string := HandString
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
 	if _, ok := ms.gs.(GS_SelectingCards); ok {
 		if ms.selected_cards.len > 0 {
-			hand_text := fmt.ctprint(hand_string[ms.selected_hand])
+			hand_text := fmt.ctprint(HandString[ms.selected_hand])
 			text_size := rl.MeasureText(hand_text, 30)
 			rl.DrawText(hand_text, i32(w / 2) - text_size / 2, 40, 30, rl.GOLD)
 		}

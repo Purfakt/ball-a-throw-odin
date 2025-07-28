@@ -79,21 +79,21 @@ Hands :: enum {
 	None,
 }
 
-SuiteString :: [Suite]string {
+SuiteString := [Suite]string {
 	.Heart   = "H",
 	.Diamond = "D",
 	.Spade   = "S",
 	.Club    = "C",
 }
 
-SuiteColor :: [Suite][4]u8 {
+SuiteColor := [Suite][4]u8 {
 	.Heart   = {235, 52, 52, 255},
 	.Diamond = {235, 116, 52, 255},
 	.Spade   = {52, 52, 116, 255},
 	.Club    = {52, 125, 235, 255},
 }
 
-RankValue :: [Rank]u8 {
+RankValue := [Rank]u8 {
 	.Ace   = 1,
 	.Two   = 2,
 	.Three = 3,
@@ -109,7 +109,7 @@ RankValue :: [Rank]u8 {
 	.King  = 13,
 }
 
-RankChip :: [Rank]u8 {
+RankChip := [Rank]u8 {
 	.Ace   = 10,
 	.Two   = 2,
 	.Three = 3,
@@ -125,7 +125,7 @@ RankChip :: [Rank]u8 {
 	.King  = 10,
 }
 
-RankString :: [Rank]string {
+RankString := [Rank]string {
 	.Ace   = "A",
 	.Two   = "2",
 	.Three = "3",
@@ -141,7 +141,7 @@ RankString :: [Rank]string {
 	.King  = "K",
 }
 
-HandString :: [Hand]string {
+HandString := [Hand]string {
 	.None          = "",
 	.HighCard      = "High Card",
 	.Pair          = "Pair",
@@ -158,7 +158,7 @@ HandString :: [Hand]string {
 	.FlushFive     = "Flush Five",
 }
 
-HandChip :: [Hand]u8 {
+HandChip := [Hand]u8 {
 	.None          = 0,
 	.HighCard      = 5,
 	.Pair          = 10,
@@ -175,7 +175,7 @@ HandChip :: [Hand]u8 {
 	.FlushFive     = 160,
 }
 
-HandMult :: [Hand]u8 {
+HandMult := [Hand]u8 {
 	.None          = 0,
 	.HighCard      = 1,
 	.Pair          = 2,
@@ -304,10 +304,7 @@ contains_straight :: proc(cards: []CardData) -> bool {
 		return false
 	}
 
-	ranks := slice.mapper(
-		cards,
-		proc(card: CardData) -> u8 {rank_value := RankValue;return rank_value[card.rank]},
-	)
+	ranks := slice.mapper(cards, proc(card: CardData) -> u8 {return RankValue[card.rank]})
 	defer delete(ranks)
 
 	slice.sort(ranks)
