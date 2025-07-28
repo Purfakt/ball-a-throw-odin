@@ -158,6 +158,40 @@ HandString :: [Hand]string {
 	.FlushFive     = "Flush Five",
 }
 
+HandChip :: [Hand]u8 {
+	.None          = 0,
+	.HighCard      = 5,
+	.Pair          = 10,
+	.TwoPair       = 20,
+	.ThreeOfAKind  = 30,
+	.Straight      = 30,
+	.Flush         = 35,
+	.FullHouse     = 40,
+	.FourOfAKind   = 60,
+	.StraightFlush = 100,
+	.RoyalFlush    = 100,
+	.FiveOfAKind   = 120,
+	.FlushHouse    = 140,
+	.FlushFive     = 160,
+}
+
+HandMult :: [Hand]u8 {
+	.None          = 0,
+	.HighCard      = 1,
+	.Pair          = 2,
+	.TwoPair       = 2,
+	.ThreeOfAKind  = 3,
+	.Straight      = 4,
+	.Flush         = 4,
+	.FullHouse     = 4,
+	.FourOfAKind   = 7,
+	.StraightFlush = 8,
+	.RoyalFlush    = 8,
+	.FiveOfAKind   = 12,
+	.FlushHouse    = 14,
+	.FlushFive     = 16,
+}
+
 CardData :: struct {
 	rank:  Rank,
 	suite: Suite,
