@@ -3,6 +3,8 @@ package game
 import "core:fmt"
 import "core:log"
 import "core:math/linalg"
+import "core:math/rand"
+import "core:slice"
 import "sds"
 import rl "vendor:raylib"
 
@@ -127,15 +129,17 @@ MS_Game :: struct {
 	gs:                    GameSate,
 	deck:                  Deck,
 	draw_pile:             Pile,
+	discard_pile:          Pile,
 	hand:                  Pile,
 	selected_cards:        Pile,
 	hovered_card:          CardHandle,
 	previous_hovered_card: CardHandle,
+	current_hand:          Hand,
 }
 
 GameSate :: union {
 	GS_DrawingCards,
-	GS_Playing,
+	GS_SelectingCards,
 }
 
 GS_DrawingCards :: struct {
@@ -143,7 +147,7 @@ GS_DrawingCards :: struct {
 	deal_index: i32,
 }
 
-GS_Playing :: struct {}
+GS_SelectingCards :: struct {}
 
 CardLayout :: struct {
 	target_rect:     rl.Rectangle,
@@ -153,8 +157,21 @@ CardLayout :: struct {
 }
 
 next_hand :: proc(ms: ^MS_Game) {
-	empty_pile(&ms.hand)
+	for ms.hand.len > 0 {
+		card := sds.array_pop_back(&ms.hand)
+		sds.array_push(&ms.discard_pile, card)
+	}
 	empty_pile(&ms.selected_cards)
+
+	if ms.draw_pile.len < 8 {
+		for ms.discard_pile.len > 0 {
+			card := sds.array_pop_back(&ms.discard_pile)
+			sds.array_push(&ms.draw_pile, card)
+		}
+		rand.shuffle(pile_slice(&ms.draw_pile))
+		log.info("Shuffled discard pile into draw pile.")
+	}
+
 	draw_cards_into(&ms.draw_pile, &ms.hand, 8)
 
 	for i := i32(0); i < ms.hand.len; i += 1 {
@@ -183,6 +200,45 @@ init_MS_Game :: proc() -> MainState {
 	next_hand(&state.ms.(MS_Game))
 
 	return state
+}
+
+play_selected_cards :: proc(ms: ^MS_Game) {
+	if ms.selected_cards.len == 0 {
+		return
+	}
+	hand_string := HandString
+	log.info("Played hand:", hand_string[ms.current_hand])
+	next_hand(ms)
+}
+
+discard_selected_cards :: proc(ms: ^MS_Game) {
+	num_to_discard := ms.selected_cards.len
+	if num_to_discard == 0 {
+		return
+	}
+
+	for i := ms.hand.len - 1; i >= 0; i -= 1 {
+		handle := sds.array_get(ms.hand, i)
+		if pile_contains(&ms.selected_cards, handle) {
+			sds.array_remove(&ms.hand, i)
+			sds.array_push(&ms.discard_pile, handle)
+		}
+	}
+
+	empty_pile(&ms.selected_cards)
+
+	draw_cards_into(&ms.draw_pile, &ms.hand, i32(num_to_discard))
+
+	for i := ms.hand.len - num_to_discard; i < ms.hand.len; i += 1 {
+		handle := sds.array_get(ms.hand, i)
+		card := sds.pool_get_ptr_safe(&ms.deck, handle) or_continue
+		card.position = DECK_POSITION
+	}
+
+	ms.gs = GS_DrawingCards {
+		deal_timer = 0,
+		deal_index = 0,
+	}
 }
 
 get_card_target_layout :: proc(ms: ^MS_Game, i: i32) -> (layout: CardLayout, handle: CardHandle) {
@@ -272,6 +328,52 @@ draw_MS_Game :: proc(dt: f32) {
 			rl.Color(suite_color[card_instance.data.suite]),
 		)
 	}
+
+	hand_string := HandString
+	w := f32(rl.GetScreenWidth())
+	h := f32(rl.GetScreenHeight())
+
+	if _, ok := ms.gs.(GS_SelectingCards); ok {
+		if ms.selected_cards.len > 0 {
+			hand_text := fmt.ctprint(hand_string[ms.current_hand])
+			text_size := rl.MeasureText(hand_text, 30)
+			rl.DrawText(hand_text, i32(w / 2) - text_size / 2, 40, 30, rl.GOLD)
+		}
+
+		button_w, button_h := 150, 50
+		button_y := h - f32(CARD_HEIGHT) - f32(button_h) - 40
+		play_button_rect := rl.Rectangle{w / 2 + 20, button_y, f32(button_w), f32(button_h)}
+		discard_button_rect := rl.Rectangle {
+			w / 2 - f32(button_w) - 20,
+			button_y,
+			f32(button_w),
+			f32(button_h),
+		}
+
+		mouse_pos := rl.GetMousePosition()
+
+		play_color := rl.DARKGREEN
+		if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {play_color = rl.GREEN}
+		rl.DrawRectangleRec(play_button_rect, play_color)
+		rl.DrawText(
+			"Play",
+			i32(play_button_rect.x) + 50,
+			i32(play_button_rect.y) + 15,
+			20,
+			rl.WHITE,
+		)
+
+		discard_color := rl.MAROON
+		if rl.CheckCollisionPointRec(mouse_pos, discard_button_rect) {discard_color = rl.RED}
+		rl.DrawRectangleRec(discard_button_rect, discard_color)
+		rl.DrawText(
+			"Discard",
+			i32(discard_button_rect.x) + 35,
+			i32(discard_button_rect.y) + 15,
+			20,
+			rl.WHITE,
+		)
+	}
 }
 
 update_MS_Game :: proc(dt: f32) {
@@ -301,10 +403,10 @@ update_MS_Game :: proc(dt: f32) {
 			target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
 
 			if rl.Vector2Distance(last_card_instance.position, target_pos) < 1.0 {
-				ms.gs = GS_Playing{}
+				ms.gs = GS_SelectingCards{}
 			}
 		}
-	case GS_Playing:
+	case GS_SelectingCards:
 		ms.hovered_card = {}
 
 		for i := ms.hand.len - 1; i >= 0; i -= 1 {
@@ -327,6 +429,46 @@ update_MS_Game :: proc(dt: f32) {
 		if ms.hovered_card != ms.previous_hovered_card && ms.hovered_card != {} {
 			card := sds.pool_get_ptr_safe(&ms.deck, ms.hovered_card) or_break
 			card.jiggle_timer = JIGGLE_DURATION
+		}
+
+		if ms.selected_cards.len > 0 {
+			selected_data := slice.mapper(
+				pile_slice(&ms.selected_cards),
+				proc(handle: CardHandle) -> CardData {
+					ms := &gm.state.ms.(MS_Game)
+					x := sds.pool_get(ms.deck, handle)
+					return x.data
+				},
+			)
+			defer delete(selected_data)
+
+			if hand, ok := check_hand(selected_data); ok {
+				ms.current_hand = hand
+			}
+		} else {
+			ms.current_hand = .None
+		}
+
+		if rl.IsMouseButtonPressed(.LEFT) {
+			w, h := f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())
+			button_w, button_h := 150, 50
+			button_y := h - f32(CARD_HEIGHT) - f32(button_h) - 40
+			play_button_rect := rl.Rectangle{w / 2 + 20, button_y, f32(button_w), f32(button_h)}
+			discard_button_rect := rl.Rectangle {
+				w / 2 - f32(button_w) - 20,
+				button_y,
+				f32(button_w),
+				f32(button_h),
+			}
+
+			if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {
+				play_selected_cards(ms)
+				return
+			}
+			if rl.CheckCollisionPointRec(mouse_pos, discard_button_rect) {
+				discard_selected_cards(ms)
+				return
+			}
 		}
 
 		if rl.IsKeyPressed(.R) {
