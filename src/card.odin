@@ -372,7 +372,6 @@ EvaluatedHand :: struct {
 }
 
 
-import "core:log"
 evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) {
 	if len(cards) < 1 || len(cards) > 5 {
 		return {}, false
@@ -451,7 +450,6 @@ evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) 
 
 		for card in cards {
 			if slice.contains(scoring_ranks[:], card.data.rank) {
-				log.info("pushing card", card.data.rank)
 				sds.array_push(&hand.scoring_handles, card.handle)
 			}
 		}

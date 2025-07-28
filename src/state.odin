@@ -319,8 +319,6 @@ get_card_table_target_layout :: proc(
 ) {
 	handle = sds.array_get(ms.played_pile, i)
 
-	// is_selected := pile_contains(&ms.selected_cards, handle)
-
 	w := i32(rl.GetScreenWidth())
 	h := i32(rl.GetScreenHeight())
 	center_w := w / 2
@@ -334,18 +332,11 @@ get_card_table_target_layout :: proc(
 
 	final_x := f32(base_x)
 	final_y := f32(base_y)
-	// if is_selected {
-	// 	final_y -= f32(CARD_HEIGHT) / 5.0
-	// }
 
 	layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
 	layout.target_rotation = 0
 	layout.font_size = CARD_FONT_SIZE
 	layout.color = rl.LIGHTGRAY
-
-	if ms.hovered_card == handle {
-		layout.color = rl.WHITE
-	}
 
 	return
 }
