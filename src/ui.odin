@@ -3,37 +3,43 @@ package game
 import "core:fmt"
 import rl "vendor:raylib"
 
-draw_total_score :: proc(score: i128) {
+UiContext :: struct {
+	w:         f32,
+	h:         f32,
+	mouse_pos: rl.Vector2,
+}
+
+draw_total_score :: proc(score: i128, ui: UiContext) {
 	total_score_text := fmt.ctprintf("Score: %v", score)
 	rl.DrawText(total_score_text, 20, 20, 30, rl.WHITE)
 }
 
-draw_updating_score :: proc(chips, mult: i64, w, h: f32) {
+draw_updating_score :: proc(chips, mult: i64, ui: UiContext) {
 	score_text := fmt.ctprintf("%v x %v = %v", chips, mult, chips * mult)
 	text_size := rl.MeasureText(score_text, 40)
-	rl.DrawText(score_text, i32(w / 2) - text_size / 2, i32(h / 2) + 80, 40, rl.WHITE)
+	rl.DrawText(score_text, i32(ui.w / 2) - text_size / 2, i32(ui.h / 2) + 80, 40, rl.WHITE)
 }
 
-draw_hand_indicator :: proc(hand: HandType, w, h: f32) {
+draw_hand_indicator :: proc(hand: HandType, ui: UiContext) {
 	if hand != .None {
 		hand_text := fmt.ctprint(HandString[hand])
 		text_size := rl.MeasureText(hand_text, 30)
-		rl.DrawText(hand_text, i32(w / 2) - text_size / 2, 40, 30, rl.GOLD)
+		rl.DrawText(hand_text, i32(ui.w / 2) - text_size / 2, 40, 30, rl.GOLD)
 	}
 }
 
-draw_play_discard_buttons :: proc(ms: MS_Game, w, h: f32) {
+draw_play_discard_buttons :: proc(ms: MS_Game, ui: UiContext) {
 	button_w, button_h := 150, 50
-	button_y := h - f32(CARD_HEIGHT) - f32(button_h) - 40
-	play_button_rect := rl.Rectangle{w / 2 + 20, button_y, f32(button_w), f32(button_h)}
+	button_y := ui.h - f32(CARD_HEIGHT) - f32(button_h) - 40
+	play_button_rect := rl.Rectangle{ui.w / 2 + 20, button_y, f32(button_w), f32(button_h)}
 	discard_button_rect := rl.Rectangle {
-		w / 2 - f32(button_w) - 20,
+		ui.w / 2 - f32(button_w) - 20,
 		button_y,
 		f32(button_w),
 		f32(button_h),
 	}
 
-	mouse_pos := rl.GetMousePosition()
+	mouse_pos := ui.mouse_pos
 
 	play_color := rl.DARKBLUE
 	if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {play_color = rl.BLUE}
@@ -50,6 +56,76 @@ draw_play_discard_buttons :: proc(ms: MS_Game, w, h: f32) {
 		20,
 		rl.WHITE,
 	)
+}
+
+get_card_hand_target_layout :: proc(
+	ms: ^MS_Game,
+	i: i32,
+) -> (
+	layout: CardLayout,
+	handle: CardHandle,
+) {
+	handle = ms.hand_pile[i]
+
+	is_selected := handle_array_contains(ms.selected_cards[:], handle)
+
+	w := i32(rl.GetScreenWidth())
+	h := i32(rl.GetScreenHeight())
+	center_w := w / 2
+	hand_size := i32(len(ms.hand_pile))
+	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
+	start_x := center_w - (hand_w / 2)
+
+	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
+	base_y := h - CARD_MARGIN - CARD_HEIGHT
+
+	final_x := f32(base_x)
+	final_y := f32(base_y)
+	if is_selected {
+		final_y -= f32(CARD_HEIGHT) / 5.0
+	}
+
+	layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
+	layout.target_rotation = 0
+	layout.font_size = CARD_FONT_SIZE
+	layout.color = rl.LIGHTGRAY
+
+	if ms.hovered_card == handle {
+		layout.color = rl.WHITE
+	}
+
+	return
+}
+
+get_card_table_target_layout :: proc(
+	ms: ^MS_Game,
+	i: i32,
+) -> (
+	layout: CardLayout,
+	handle: CardHandle,
+) {
+	handle = ms.played_pile[i]
+
+	w := i32(rl.GetScreenWidth())
+	h := i32(rl.GetScreenHeight())
+	center_w := w / 2
+	center_h := h / 2
+	played_size := i32(len(ms.played_pile))
+	hand_w := (CARD_WIDTH * played_size) + (CARD_MARGIN * (played_size - 1))
+	start_x := center_w - (hand_w / 2)
+
+	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
+	base_y := center_h - CARD_MARGIN - CARD_HEIGHT / 2
+
+	final_x := f32(base_x)
+	final_y := f32(base_y)
+
+	layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
+	layout.target_rotation = 0
+	layout.font_size = CARD_FONT_SIZE
+	layout.color = rl.LIGHTGRAY
+
+	return
 }
 
 draw_card :: proc(card_instance: CardInstance) {

@@ -31,7 +31,8 @@ package game
 import rl "vendor:raylib"
 
 Game_Memory :: struct {
-	state: MainState,
+	state:          MainState,
+	input_commands: [dynamic]Input_Command,
 }
 
 gm: ^Game_Memory
@@ -49,16 +50,12 @@ ui_camera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-handle_input :: proc() {
-}
-
-
 update :: proc(dt: f32) {
-	handle_input()
 	if gm.state.in_transition {
 		update_transition(dt)
 		return
 	}
+	handle_input()
 	gm.state.update(dt)
 }
 
@@ -118,6 +115,10 @@ game_should_run :: proc() -> bool {
 @(export)
 game_shutdown :: proc() {
 	rl.CloseAudioDevice()
+	if gm.state.delete != nil {
+		gm.state.delete()
+	}
+	delete(gm.input_commands)
 	free(gm)
 }
 

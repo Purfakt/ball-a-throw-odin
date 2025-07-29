@@ -77,6 +77,7 @@ init_MS_Game :: proc() -> MainState {
 		},
 		draw = draw_MS_Game,
 		update = update_MS_Game,
+		delete = delete_MS_Game,
 	}
 
 	next_hand(&state.ms.(MS_Game))
@@ -86,6 +87,9 @@ init_MS_Game :: proc() -> MainState {
 
 next_hand :: proc(ms: ^MS_Game) {
 	empty_pile(&ms.played_pile)
+	empty_pile(&ms.selected_cards)
+	ms.selected_hand = .None
+
 	hand_size := i32(len(ms.hand_pile))
 	if hand_size < BASE_DRAW_AMOUNT {
 		draw_cards_into(&ms.draw_pile, &ms.hand_pile, BASE_DRAW_AMOUNT - hand_size)
@@ -169,77 +173,6 @@ discard_selected_cards :: proc(ms: ^MS_Game) {
 	}
 }
 
-get_card_hand_target_layout :: proc(
-	ms: ^MS_Game,
-	i: i32,
-) -> (
-	layout: CardLayout,
-	handle: CardHandle,
-) {
-	handle = ms.hand_pile[i]
-
-	is_selected := handle_array_contains(ms.selected_cards[:], handle)
-
-
-	w := i32(rl.GetScreenWidth())
-	h := i32(rl.GetScreenHeight())
-	center_w := w / 2
-	hand_size := i32(len(ms.hand_pile))
-	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
-	start_x := center_w - (hand_w / 2)
-
-	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
-	base_y := h - CARD_MARGIN - CARD_HEIGHT
-
-	final_x := f32(base_x)
-	final_y := f32(base_y)
-	if is_selected {
-		final_y -= f32(CARD_HEIGHT) / 5.0
-	}
-
-	layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
-	layout.target_rotation = 0
-	layout.font_size = CARD_FONT_SIZE
-	layout.color = rl.LIGHTGRAY
-
-	if ms.hovered_card == handle {
-		layout.color = rl.WHITE
-	}
-
-	return
-}
-
-get_card_table_target_layout :: proc(
-	ms: ^MS_Game,
-	i: i32,
-) -> (
-	layout: CardLayout,
-	handle: CardHandle,
-) {
-	handle = ms.played_pile[i]
-
-	w := i32(rl.GetScreenWidth())
-	h := i32(rl.GetScreenHeight())
-	center_w := w / 2
-	center_h := h / 2
-	played_size := i32(len(ms.played_pile))
-	hand_w := (CARD_WIDTH * played_size) + (CARD_MARGIN * (played_size - 1))
-	start_x := center_w - (hand_w / 2)
-
-	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
-	base_y := center_h - CARD_MARGIN - CARD_HEIGHT / 2
-
-	final_x := f32(base_x)
-	final_y := f32(base_y)
-
-	layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
-	layout.target_rotation = 0
-	layout.font_size = CARD_FONT_SIZE
-	layout.color = rl.LIGHTGRAY
-
-	return
-}
-
 draw_MS_Game :: proc(dt: f32) {
 	ms, game_ok := gm.state.ms.(MS_Game)
 
@@ -251,7 +184,7 @@ draw_MS_Game :: proc(dt: f32) {
 
 	hand_size := i32(len(ms.hand_pile))
 	for i := i32(0); i < hand_size; i += 1 {
-		_, card_handle := get_card_hand_target_layout(&ms, i)
+		card_handle := ms.hand_pile[i]
 		card_instance := hm.get(&ms.deck, card_handle)
 
 		draw_card(card_instance^)
@@ -275,18 +208,20 @@ draw_MS_Game :: proc(dt: f32) {
 
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
+	mouse_pos := rl.GetMousePosition()
 
+	ui := UiContext{w, h, mouse_pos}
 
 	if _, ok := ms.gs.(GS_SelectingCards); ok {
-		draw_hand_indicator(ms.selected_hand, w, h)
-		draw_play_discard_buttons(ms, w, h)
+		draw_hand_indicator(ms.selected_hand, ui)
+		draw_play_discard_buttons(ms, ui)
 	}
 
 	if state, ok := ms.gs.(GS_PlayingCards); ok {
-		draw_updating_score(state.current_chips, state.base_mult, w, h)
+		draw_updating_score(state.current_chips, state.base_mult, ui)
 	}
 
-	draw_total_score(ms.current_score)
+	draw_total_score(ms.current_score, ui)
 }
 
 update_MS_Game :: proc(dt: f32) {
@@ -296,166 +231,29 @@ update_MS_Game :: proc(dt: f32) {
 
 	ms, game_ok := &gm.state.ms.(MS_Game)
 
-	if !game_ok {
-		return
+	if !game_ok {return}
+
+	for command in gm.input_commands {
+		process_command(ms, command)
 	}
+	clear(&gm.input_commands)
+
 
 	gs := &ms.gs
 
-	mouse_pos := rl.GetMousePosition()
-	hand_size := i32(len(ms.hand_pile))
 
 	switch &state in gs {
 	case GS_DrawingCards:
-		state.deal_timer -= dt
-
-
-		if state.deal_timer <= 0 {
-			state.deal_timer = DEAL_DELAY
-			if state.deal_index < hand_size {
-				state.deal_index += 1
-			}
-		}
-
-		if hand_size > 0 && state.deal_index >= hand_size {
-			last_card_handle := ms.hand_pile[hand_size - 1]
-			last_card_instance := hm.get(&ms.deck, last_card_handle)
-
-			if last_card_instance == nil {
-				break
-			}
-
-			target_layout, _ := get_card_hand_target_layout(ms, hand_size - 1)
-			target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
-
-			if rl.Vector2Distance(last_card_instance.position, target_pos) < 1.0 {
-				ms.gs = GS_SelectingCards{}
-			}
-		}
+		update_GS_drawing_cards(ms, &state, dt)
 	case GS_SelectingCards:
-		ms.hovered_card = {}
-
-		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(ms, i)
-
-			if rl.CheckCollisionPointRec(mouse_pos, target_layout.target_rect) {
-				ms.hovered_card = card_handle
-
-				if rl.IsMouseButtonPressed(.LEFT) {
-					if handle_array_contains(ms.selected_cards[:], card_handle) {
-						handle_array_remove_handle(&ms.selected_cards, card_handle)
-					} else if len(ms.selected_cards) < MAX_SELECTED {
-						append(&ms.selected_cards, card_handle)
-					}
-					ms.has_refreshed_selected_cards = true
-				}
-				break
-			}
-		}
-
-		if ms.hovered_card != ms.previous_hovered_card && ms.hovered_card != {} {
-			card := hm.get(&ms.deck, ms.hovered_card)
-			if card == nil {
-				break
-			}
-			card.jiggle_timer = JIGGLE_DURATION
-		}
-
-		if len(ms.selected_cards) > 0 && ms.has_refreshed_selected_cards {
-			ms.has_refreshed_selected_cards = false
-			selected_data := slice.mapper(
-				ms.selected_cards[:],
-				proc(handle: CardHandle) -> CardInstance {
-					ms := &gm.state.ms.(MS_Game)
-					c := hm.get(&ms.deck, handle)
-					return c^
-				},
-			)
-			defer delete(selected_data)
-
-			if hand, ok := evaluate_hand(selected_data); ok {
-				ms.selected_hand = hand.hand_type
-				ms.scoring_cards_handles = hand.scoring_handles
-			}
-		}
-
-		if rl.IsMouseButtonPressed(.LEFT) {
-			w, h := f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())
-			button_w, button_h := 150, 50
-			button_y := h - f32(CARD_HEIGHT) - f32(button_h) - 40
-			play_button_rect := rl.Rectangle{w / 2 + 20, button_y, f32(button_w), f32(button_h)}
-			discard_button_rect := rl.Rectangle {
-				w / 2 - f32(button_w) - 20,
-				button_y,
-				f32(button_w),
-				f32(button_h),
-			}
-
-			if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {
-				play_selected_cards(ms)
-				return
-			}
-			if rl.CheckCollisionPointRec(mouse_pos, discard_button_rect) {
-				discard_selected_cards(ms)
-				return
-			}
-		}
-
-		if rl.IsKeyPressed(.R) {
-			next_hand(ms)
-			return
-		}
-		break
+		update_GS_selecting_cards(ms, &state, dt)
 	case GS_PlayingCards:
-		state.animation_timer -= dt
-
-		played_size := i32(len(ms.played_pile))
-
-		if state.phase == .DealingToTable {
-			last_card_handle := ms.played_pile[played_size - 1]
-			last_card_instance := hm.get(&ms.deck, last_card_handle)
-			if last_card_instance == nil {
-				break
-			}
-			target_layout, _ := get_card_table_target_layout(ms, played_size - 1)
-			target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
-
-			if rl.Vector2Distance(last_card_instance.position, target_pos) < 1.0 {
-				state.phase = .ScoringHand
-				state.animation_timer = 0.5
-			}
-		}
-
-		if state.phase == .ScoringHand && state.animation_timer <= 0 {
-			state.scoring_index += 1
-			rank_chip := RankChip
-
-			if state.scoring_index < played_size {
-				card_handle := ms.played_pile[state.scoring_index]
-				contains := handle_array_contains(ms.scoring_cards_handles[:], card_handle)
-				if contains {
-					card := hm.get(&ms.deck, card_handle)
-					if card != nil {
-						state.current_chips += i64(rank_chip[card.data.rank])
-					}
-				}
-
-				state.animation_timer = 0.4
-			} else {
-				state.phase = .Finishing
-				state.animation_timer = 1.5
-			}
-		}
-
-		if state.phase == .Finishing && state.animation_timer <= 0 {
-			final_score := state.current_chips * state.base_mult
-			ms.current_score += i128(final_score)
-			log.info("Final score for hand:", final_score, "Total score:", ms.current_score)
-			next_hand(ms)
-		}
+		update_GS_playing_cards(ms, &state, dt)
 	}
 
 	animation_speed: f32 = 10.0
+	hand_size := i32(len(ms.hand_pile))
+
 	for i := i32(0); i < hand_size; i += 1 {
 		handle := ms.hand_pile[i]
 		card_instance := hm.get(&ms.deck, handle)
@@ -513,4 +311,142 @@ update_MS_Game :: proc(dt: f32) {
 		)
 		card_instance.rotation = linalg.lerp(card_instance.rotation, 0, animation_speed * dt)
 	}
+}
+
+update_GS_drawing_cards :: proc(ms: ^MS_Game, gs: ^GS_DrawingCards, dt: f32) {
+	gs.deal_timer -= dt
+	hand_size := i32(len(ms.hand_pile))
+
+	if gs.deal_timer <= 0 {
+		gs.deal_timer = DEAL_DELAY
+		if gs.deal_index < hand_size {
+			gs.deal_index += 1
+		}
+	}
+
+	if hand_size > 0 && gs.deal_index >= hand_size {
+		last_card_handle := ms.hand_pile[hand_size - 1]
+		last_card_instance := hm.get(&ms.deck, last_card_handle)
+
+		if last_card_instance == nil {
+			return
+		}
+		target_layout, _ := get_card_hand_target_layout(ms, hand_size - 1)
+		target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
+
+		if rl.Vector2Distance(last_card_instance.position, target_pos) < 1.0 {
+			ms.gs = GS_SelectingCards{}
+		}
+	}
+}
+update_GS_selecting_cards :: proc(ms: ^MS_Game, gs: ^GS_SelectingCards, dt: f32) {
+	if ms.hovered_card != ms.previous_hovered_card && ms.hovered_card != {} {
+		card := hm.get(&ms.deck, ms.hovered_card)
+		if card == nil {
+			return
+		}
+		card.jiggle_timer = JIGGLE_DURATION
+	}
+
+	if len(ms.selected_cards) > 0 && ms.has_refreshed_selected_cards {
+		ms.has_refreshed_selected_cards = false
+		selected_data := slice.mapper(
+			ms.selected_cards[:],
+			proc(handle: CardHandle) -> CardInstance {
+				ms := &gm.state.ms.(MS_Game)
+				c := hm.get(&ms.deck, handle)
+				return c^
+			},
+		)
+		defer delete(selected_data)
+
+		if hand, ok := evaluate_hand(selected_data); ok {
+			ms.selected_hand = hand.hand_type
+			ms.scoring_cards_handles = hand.scoring_handles
+		}
+	}
+}
+
+update_GS_playing_cards :: proc(ms: ^MS_Game, gs: ^GS_PlayingCards, dt: f32) {
+	gs.animation_timer -= dt
+
+	played_size := i32(len(ms.played_pile))
+
+	if gs.phase == .DealingToTable {
+		last_card_handle := ms.played_pile[played_size - 1]
+		last_card_instance := hm.get(&ms.deck, last_card_handle)
+		if last_card_instance == nil {
+			return
+		}
+		target_layout, _ := get_card_table_target_layout(ms, played_size - 1)
+		target_pos := rl.Vector2{target_layout.target_rect.x, target_layout.target_rect.y}
+
+		if rl.Vector2Distance(last_card_instance.position, target_pos) < 1.0 {
+			gs.phase = .ScoringHand
+			gs.animation_timer = 0.5
+		}
+	}
+
+	if gs.phase == .ScoringHand && gs.animation_timer <= 0 {
+		gs.scoring_index += 1
+		rank_chip := RankChip
+
+		if gs.scoring_index < played_size {
+			card_handle := ms.played_pile[gs.scoring_index]
+			contains := handle_array_contains(ms.scoring_cards_handles[:], card_handle)
+			if contains {
+				card := hm.get(&ms.deck, card_handle)
+				if card != nil {
+					gs.current_chips += i64(rank_chip[card.data.rank])
+				}
+			}
+
+			gs.animation_timer = 0.4
+		} else {
+			gs.phase = .Finishing
+			gs.animation_timer = 1.5
+		}
+	}
+
+	if gs.phase == .Finishing && gs.animation_timer <= 0 {
+		final_score := gs.current_chips * gs.base_mult
+		ms.current_score += i128(final_score)
+		next_hand(ms)
+	}
+}
+
+process_command :: proc(ms: ^MS_Game, command: Input_Command) {
+	gs := &ms.gs
+	_, is_selecting_cards := gs.(GS_SelectingCards)
+	switch c in command {
+	case Input_Command_Select_Card:
+		if !is_selecting_cards {break}
+		if handle_array_contains(ms.selected_cards[:], c.handle) {
+			handle_array_remove_handle(&ms.selected_cards, c.handle)
+		} else if len(ms.selected_cards) < MAX_SELECTED {
+			append(&ms.selected_cards, c.handle)
+		}
+		ms.has_refreshed_selected_cards = true
+
+	case Input_Command_Play_Hand:
+		if !is_selecting_cards {break}
+		play_selected_cards(ms)
+
+	case Input_Command_Discard_Hand:
+		if !is_selecting_cards {break}
+		discard_selected_cards(ms)
+
+	case Input_Command_Next_Hand:
+		next_hand(ms)
+	}
+}
+
+delete_MS_Game :: proc() {
+	state, ok := gm.state.ms.(MS_Game)
+	if !ok {return}
+
+	delete(state.draw_pile)
+	delete(state.selected_cards)
+	delete(state.hand_pile)
+	delete(state.played_pile)
 }

@@ -6,6 +6,7 @@ MainState :: struct {
 	ms:            MS,
 	update:        proc(dt: f32),
 	draw:          proc(dt: f32),
+	delete:        proc(),
 	in_transition: bool,
 	transition:    Transition,
 }
