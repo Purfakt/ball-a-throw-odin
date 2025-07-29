@@ -30,7 +30,11 @@ package game
 // import "core:fmt"
 import rl "vendor:raylib"
 
-PIXEL_WINDOW_HEIGHT :: 360
+Game_Memory :: struct {
+	state: MainState,
+}
+
+gm: ^Game_Memory
 
 game_camera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())

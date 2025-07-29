@@ -1,129 +1,10 @@
 package game
 
-import "core:fmt"
 import "core:log"
 import "core:math/linalg"
 import "core:slice"
 import hm "handle_map"
 import rl "vendor:raylib"
-
-MainState :: struct {
-	ms:            MS,
-	update:        proc(dt: f32),
-	draw:          proc(dt: f32),
-	in_transition: bool,
-	transition:    Transition,
-}
-
-MS :: union {
-	MS_Menu,
-	MS_Game,
-}
-
-// ------------
-//  TRANSITION
-// ------------
-
-TRANSITION_TIME :: 0.2
-
-Transition :: struct {
-	time_fade_out:   f32,
-	time_fade_in:    f32,
-	fade:            f32,
-	fade_in_done:    bool,
-	next_state_proc: proc() -> MainState,
-}
-
-update_transition :: proc(dt: f32) {
-	transition := &gm.state.transition
-	if transition.time_fade_in < TRANSITION_TIME {
-		transition.time_fade_in += dt
-		transition.fade = transition.time_fade_in / TRANSITION_TIME
-	} else if !transition.fade_in_done {
-		transition.fade_in_done = true
-		new_game_state := transition.next_state_proc()
-		new_game_state.in_transition = true
-		new_game_state.transition = transition^
-		gm.state = new_game_state
-	} else if transition.time_fade_out < TRANSITION_TIME {
-		transition.time_fade_out += dt
-		transition.fade = 1 - (transition.time_fade_out / TRANSITION_TIME)
-	} else {
-		gm.state.in_transition = false
-		transition.time_fade_out = 0
-		transition.time_fade_in = 0
-	}
-}
-
-draw_transition :: proc(fade: f32) {
-	w := rl.GetScreenWidth()
-	h := rl.GetScreenHeight()
-	alpha := u8(fade * f32(255))
-	rl.DrawRectangle(0, 0, w, h, rl.Color{0, 0, 0, alpha})
-}
-
-
-transition_to :: proc(next_state_proc: proc() -> MainState) {
-	transition := Transition {
-		time_fade_in    = 0,
-		time_fade_out   = 0,
-		fade_in_done    = false,
-		next_state_proc = next_state_proc,
-	}
-	gm.state.transition = transition
-	gm.state.in_transition = true
-}
-
-// ------------
-//     MENU
-// ------------
-
-MS_Menu :: struct {}
-
-init_MS_Menu :: proc() -> MainState {
-	return MainState{ms = MS_Menu{}, draw = draw_MS_Menu, update = update_MS_Menu}
-}
-
-update_MS_Menu :: proc(dt: f32) {
-	if rl.IsKeyPressed(.SPACE) {
-		transition_to(proc() -> MainState {return init_MS_Game()})
-	}
-}
-
-draw_MS_Menu :: proc(dt: f32) {
-	w := rl.GetScreenWidth()
-	h := rl.GetScreenHeight()
-	rl.ClearBackground(rl.BLACK)
-	title_text_font_size := i32(36)
-	title_text := fmt.ctprintf("Ball-A-Throw")
-	title_text_len := rl.MeasureText(title_text, title_text_font_size)
-	subtext_font_size := i32(24)
-	subtext := fmt.ctprintf("PRESS [SPACE] TO START")
-	subtext_len := rl.MeasureText(subtext, subtext_font_size)
-	rl.BeginMode2D(ui_camera())
-	rl.DrawText(
-		title_text,
-		w / 4 - title_text_len / 2,
-		h / 4 - title_text_font_size / 2,
-		title_text_font_size,
-		rl.WHITE,
-	)
-	rl.DrawText(
-		subtext,
-		w / 4 - subtext_len / 2,
-		h / 4 + subtext_font_size / 2,
-		subtext_font_size,
-		rl.WHITE,
-	)
-	rl.EndMode2D()
-}
-
-// ------------
-//     GAME
-// ------------
-
-MAX_SELECTED :: 5
-BASE_DRAW_AMOUNT :: 8
 
 MS_Game :: struct {
 	gs:                           GameSate,
@@ -133,7 +14,7 @@ MS_Game :: struct {
 	current_score:                i128,
 	draw_pile:                    Pile,
 	played_pile:                  Pile,
-	scoring_cards_handles:        Pile,
+	scoring_cards_handles:        Selection,
 	hand_pile:                    Pile,
 	selected_cards:               Pile,
 	has_refreshed_selected_cards: bool,
@@ -177,28 +58,6 @@ CardLayout :: struct {
 	font_size:       i32,
 }
 
-next_hand :: proc(ms: ^MS_Game) {
-	empty_pile(&ms.played_pile)
-	hand_size := i32(len(ms.hand_pile))
-	if hand_size < BASE_DRAW_AMOUNT {
-		draw_cards_into(&ms.draw_pile, &ms.hand_pile, BASE_DRAW_AMOUNT - hand_size)
-		for i := i32(0); i < hand_size; i += 1 {
-			handle := ms.hand_pile[i]
-			card := hm.get(&ms.deck, handle)
-			if card == nil {
-				continue
-			}
-			card.position = DECK_POSITION
-		}
-	}
-
-
-	ms.gs = GS_DrawingCards {
-		deal_timer = 0,
-		deal_index = 0,
-	}
-}
-
 init_MS_Game :: proc() -> MainState {
 	log.info("init_MS_Game")
 	deck := init_deck()
@@ -225,6 +84,28 @@ init_MS_Game :: proc() -> MainState {
 	return state
 }
 
+next_hand :: proc(ms: ^MS_Game) {
+	empty_pile(&ms.played_pile)
+	hand_size := i32(len(ms.hand_pile))
+	if hand_size < BASE_DRAW_AMOUNT {
+		draw_cards_into(&ms.draw_pile, &ms.hand_pile, BASE_DRAW_AMOUNT - hand_size)
+		for i := i32(0); i < hand_size; i += 1 {
+			handle := ms.hand_pile[i]
+			card := hm.get(&ms.deck, handle)
+			if card == nil {
+				continue
+			}
+			card.position = DECK_POSITION
+		}
+	}
+
+
+	ms.gs = GS_DrawingCards {
+		deal_timer = 0,
+		deal_index = 0,
+	}
+}
+
 play_selected_cards :: proc(ms: ^MS_Game) {
 	if len(ms.selected_cards) == 0 {
 		return
@@ -238,7 +119,7 @@ play_selected_cards :: proc(ms: ^MS_Game) {
 
 	for i := hand_size - 1; i >= 0; i -= 1 {
 		handle := ms.hand_pile[i]
-		if handle_array_contains(ms.selected_cards, handle) {
+		if handle_array_contains(ms.selected_cards[:], handle) {
 			ordered_remove(&ms.hand_pile, i)
 			append(&ms.played_pile, handle)
 		}
@@ -264,7 +145,7 @@ discard_selected_cards :: proc(ms: ^MS_Game) {
 
 	for i := len(ms.hand_pile) - 1; i >= 0; i -= 1 {
 		handle := ms.hand_pile[i]
-		if handle_array_contains(ms.selected_cards, handle) {
+		if handle_array_contains(ms.selected_cards[:], handle) {
 			ordered_remove(&ms.hand_pile, i)
 		}
 	}
@@ -297,7 +178,7 @@ get_card_hand_target_layout :: proc(
 ) {
 	handle = ms.hand_pile[i]
 
-	is_selected := handle_array_contains(ms.selected_cards, handle)
+	is_selected := handle_array_contains(ms.selected_cards[:], handle)
 
 
 	w := i32(rl.GetScreenWidth())
@@ -373,50 +254,7 @@ draw_MS_Game :: proc(dt: f32) {
 		_, card_handle := get_card_hand_target_layout(&ms, i)
 		card_instance := hm.get(&ms.deck, card_handle)
 
-		if card_instance == nil {
-			continue
-		}
-
-		card_width := f32(CARD_WIDTH)
-		card_height := f32(CARD_HEIGHT)
-		font_size := f32(CARD_FONT_SIZE)
-
-		card_dest_rect := rl.Rectangle {
-			x      = card_instance.position.x + card_width / 2,
-			y      = card_instance.position.y + card_height / 2,
-			width  = card_width,
-			height = card_height,
-		}
-
-		card_origin := rl.Vector2{card_width / 2, card_height / 2}
-
-		rl.DrawRectanglePro(card_dest_rect, card_origin, card_instance.rotation, rl.LIGHTGRAY)
-
-		if font_size <= 1 {continue}
-
-		card_center := rl.Vector2 {
-			card_instance.position.x + card_width / 2,
-			card_instance.position.y + card_height / 2,
-		}
-
-		rank_text := fmt.ctprintf("%v", RankString[card_instance.data.rank])
-		text_size := rl.MeasureTextEx(rl.GetFontDefault(), rank_text, font_size, 1)
-
-		text_position := rl.Vector2 {
-			card_center.x - text_size.x / 2,
-			card_center.y - text_size.y / 2,
-		}
-
-		rl.DrawTextPro(
-			rl.GetFontDefault(),
-			rank_text,
-			text_position,
-			{},
-			card_instance.rotation,
-			font_size,
-			1.0,
-			rl.Color(SuiteColor[card_instance.data.suite]),
-		)
+		draw_card(card_instance^)
 	}
 
 	played_size := i32(len(ms.played_pile))
@@ -428,126 +266,27 @@ draw_MS_Game :: proc(dt: f32) {
 		if card_instance == nil {
 			continue
 		}
-		is_scoring := handle_array_contains(ms.scoring_cards_handles, card_handle)
-
-		card_width := f32(CARD_WIDTH)
-		card_height := f32(CARD_HEIGHT)
-		font_size := f32(CARD_FONT_SIZE)
-
-		card_dest_rect := rl.Rectangle {
-			x      = card_instance.position.x + card_width / 2,
-			y      = card_instance.position.y + card_height / 2,
-			width  = card_width,
-			height = card_height,
-		}
-
-		card_origin := rl.Vector2{card_width / 2, card_height / 2}
-
-		color := rl.DARKGRAY
-		if is_scoring {
-			color = rl.LIGHTGRAY
-		}
-
-		rl.DrawRectanglePro(card_dest_rect, card_origin, card_instance.rotation, color)
-
-
-		if font_size <= 1 {continue}
-
-		card_center := rl.Vector2 {
-			card_instance.position.x + card_width / 2,
-			card_instance.position.y + card_height / 2,
-		}
-
-		rank_text := fmt.ctprintf("%v", RankString[card_instance.data.rank])
-		text_size := rl.MeasureTextEx(rl.GetFontDefault(), rank_text, font_size, 1)
-
-		text_position := rl.Vector2 {
-			card_center.x - text_size.x / 2,
-			card_center.y - text_size.y / 2,
-		}
-
-		rl.DrawTextPro(
-			rl.GetFontDefault(),
-			rank_text,
-			text_position,
-			{},
-			card_instance.rotation,
-			font_size,
-			1.0,
-			rl.Color(SuiteColor[card_instance.data.suite]),
-		)
+		is_scoring := handle_array_contains(ms.scoring_cards_handles[:], card_handle)
+		draw_card(card_instance^)
 		if state, ok := ms.gs.(GS_PlayingCards); ok && state.scoring_index == i {
-			rect := rl.Rectangle {
-				x      = card_instance.position.x,
-				y      = card_instance.position.y,
-				width  = card_width,
-				height = card_height,
-			}
-			highlight_color := rl.DARKBROWN
-			if is_scoring {
-				highlight_color = rl.GOLD
-			}
-			rl.DrawRectangleLinesEx(rect, 4, highlight_color)
+			draw_card_highlight(card_instance^, is_scoring)
 		}
 	}
 
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
+
 	if _, ok := ms.gs.(GS_SelectingCards); ok {
-		if len(ms.selected_cards) > 0 {
-			hand_text := fmt.ctprint(HandString[ms.selected_hand])
-			text_size := rl.MeasureText(hand_text, 30)
-			rl.DrawText(hand_text, i32(w / 2) - text_size / 2, 40, 30, rl.GOLD)
-		}
-
-		button_w, button_h := 150, 50
-		button_y := h - f32(CARD_HEIGHT) - f32(button_h) - 40
-		play_button_rect := rl.Rectangle{w / 2 + 20, button_y, f32(button_w), f32(button_h)}
-		discard_button_rect := rl.Rectangle {
-			w / 2 - f32(button_w) - 20,
-			button_y,
-			f32(button_w),
-			f32(button_h),
-		}
-
-		mouse_pos := rl.GetMousePosition()
-
-		play_color := rl.DARKBLUE
-		if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {play_color = rl.BLUE}
-		rl.DrawRectangleRec(play_button_rect, play_color)
-		rl.DrawText(
-			"Play",
-			i32(play_button_rect.x) + 50,
-			i32(play_button_rect.y) + 15,
-			20,
-			rl.WHITE,
-		)
-
-		discard_color := rl.MAROON
-		if rl.CheckCollisionPointRec(mouse_pos, discard_button_rect) {discard_color = rl.RED}
-		rl.DrawRectangleRec(discard_button_rect, discard_color)
-		rl.DrawText(
-			"Discard",
-			i32(discard_button_rect.x) + 35,
-			i32(discard_button_rect.y) + 15,
-			20,
-			rl.WHITE,
-		)
+		draw_hand_indicator(ms.selected_hand, w, h)
+		draw_play_discard_buttons(ms, w, h)
 	}
 
 	if state, ok := ms.gs.(GS_PlayingCards); ok {
-		score_text := fmt.ctprintf(
-			"%v x %v = %v",
-			state.current_chips,
-			state.base_mult,
-			state.current_chips * state.base_mult,
-		)
-		text_size := rl.MeasureText(score_text, 40)
-		rl.DrawText(score_text, i32(w / 2) - text_size / 2, i32(h / 2) + 80, 40, rl.WHITE)
+		draw_updating_score(state.current_chips, state.base_mult, w, h)
 	}
-	total_score_text := fmt.ctprintf("Score: %v", ms.current_score)
-	rl.DrawText(total_score_text, 20, 20, 30, rl.WHITE)
+
+	draw_total_score(ms.current_score)
 }
 
 update_MS_Game :: proc(dt: f32) {
@@ -603,7 +342,7 @@ update_MS_Game :: proc(dt: f32) {
 				ms.hovered_card = card_handle
 
 				if rl.IsMouseButtonPressed(.LEFT) {
-					if handle_array_contains(ms.selected_cards, card_handle) {
+					if handle_array_contains(ms.selected_cards[:], card_handle) {
 						handle_array_remove_handle(&ms.selected_cards, card_handle)
 					} else if len(ms.selected_cards) < MAX_SELECTED {
 						append(&ms.selected_cards, card_handle)
@@ -693,7 +432,7 @@ update_MS_Game :: proc(dt: f32) {
 
 			if state.scoring_index < played_size {
 				card_handle := ms.played_pile[state.scoring_index]
-				contains := handle_array_contains(ms.scoring_cards_handles, card_handle)
+				contains := handle_array_contains(ms.scoring_cards_handles[:], card_handle)
 				if contains {
 					card := hm.get(&ms.deck, card_handle)
 					if card != nil {
@@ -712,7 +451,6 @@ update_MS_Game :: proc(dt: f32) {
 			final_score := state.current_chips * state.base_mult
 			ms.current_score += i128(final_score)
 			log.info("Final score for hand:", final_score, "Total score:", ms.current_score)
-
 			next_hand(ms)
 		}
 	}

@@ -45,23 +45,6 @@ HandType :: enum {
 	FlushFive,
 }
 
-SUITES :: [4]Suite{.Heart, .Diamond, .Spade, .Club}
-RANKS :: [13]Rank {
-	.Ace,
-	.Two,
-	.Three,
-	.Four,
-	.Five,
-	.Six,
-	.Seven,
-	.Eight,
-	.Nine,
-	.Ten,
-	.Jack,
-	.Queen,
-	.King,
-}
-
 Hands :: enum {
 	FlushFive,
 	FlushHouse,
@@ -205,8 +188,14 @@ CardInstance :: struct {
 	jiggle_timer: f32,
 }
 
+EvaluatedHand :: struct {
+	hand_type:       HandType,
+	scoring_handles: Selection,
+}
+
 Deck :: hm.Handle_Map(CardInstance, CardHandle, 1024)
 Pile :: [dynamic]CardHandle
+Selection :: [5]CardHandle
 
 CardHandle :: distinct hm.Handle
 
@@ -222,8 +211,8 @@ new_card :: proc(rank: Rank, suite: Suite) -> CardInstance {
 init_deck :: proc() -> Deck {
 	deck := Deck{}
 
-	for suite in SUITES {
-		for rank in RANKS {
+	for suite in Suite {
+		for rank in Rank {
 			handle := hm.add(&deck, new_card(rank, suite))
 			card := hm.get(&deck, handle)
 			card.handle = handle
@@ -259,8 +248,8 @@ empty_pile :: proc(pile: ^Pile) {
 	}
 }
 
-handle_array_contains :: proc(pile: Pile, handle: CardHandle) -> bool {
-	for h in pile[:] {
+handle_array_contains :: proc(pile: []CardHandle, handle: CardHandle) -> bool {
+	for h in pile {
 		if h == handle {
 			return true
 		}
@@ -359,11 +348,6 @@ same_rank_amount :: proc(cards: []CardData) -> (u8, u8) {
 	return major_group, minor_group
 }
 
-EvaluatedHand :: struct {
-	hand_type:       HandType,
-	scoring_handles: Pile,
-}
-
 
 evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) {
 	if len(cards) < 1 || len(cards) > 5 {
@@ -411,15 +395,15 @@ evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) 
 
 	#partial switch hand.hand_type {
 	case .Straight, .Flush, .StraightFlush, .RoyalFlush, .FullHouse, .FlushHouse, .FlushFive:
-		for card in cards {
-			append(&hand.scoring_handles, card.handle)
+		for card, i in cards {
+			hand.scoring_handles[i] = card.handle
 		}
 	case .HighCard:
 		slice.sort_by(
 			cards[:],
 			proc(lhs, rhs: CardInstance) -> bool {return lhs.data.rank > rhs.data.rank},
 		)
-		append(&hand.scoring_handles, cards[0].handle)
+		hand.scoring_handles[0] = cards[0].handle
 	case:
 		rank_counts := make(map[Rank]u8)
 		defer delete(rank_counts)
@@ -441,9 +425,9 @@ evaluate_hand :: proc(cards: []CardInstance) -> (hand: EvaluatedHand, ok: bool) 
 			for r, c in rank_counts {if c >= 5 {append(&scoring_ranks, r)}}
 		}
 
-		for card in cards {
+		for card, i in cards {
 			if slice.contains(scoring_ranks[:], card.data.rank) {
-				append(&hand.scoring_handles, card.handle)
+				hand.scoring_handles[i] = card.handle
 			}
 		}
 	}
