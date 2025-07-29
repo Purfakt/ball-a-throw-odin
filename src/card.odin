@@ -207,7 +207,6 @@ CardInstance :: struct {
 
 Deck :: hm.Handle_Map(CardInstance, CardHandle, 1024)
 Pile :: [dynamic]CardHandle
-ScoringPile :: [dynamic]CardHandle
 
 CardHandle :: distinct hm.Handle
 
@@ -362,7 +361,7 @@ same_rank_amount :: proc(cards: []CardData) -> (u8, u8) {
 
 EvaluatedHand :: struct {
 	hand_type:       HandType,
-	scoring_handles: ScoringPile,
+	scoring_handles: Pile,
 }
 
 

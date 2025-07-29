@@ -64,7 +64,6 @@ draw :: proc(dt: f32) {
 
 	gm.state.draw(dt)
 	if gm.state.in_transition {draw_transition(gm.state.transition.fade)}
-
 	rl.EndDrawing()
 }
 
@@ -78,7 +77,7 @@ game_update :: proc() {
 
 @(export)
 game_init_window :: proc() {
-	rl.SetConfigFlags({.VSYNC_HINT})
+	rl.SetConfigFlags({.VSYNC_HINT, .WINDOW_RESIZABLE})
 	rl.InitWindow(1280, 720, "Ball-A-Throw")
 	rl.SetWindowPosition(600, 200)
 	rl.SetTargetFPS(60)
@@ -155,5 +154,5 @@ game_force_restart :: proc() -> bool {
 // In a web build, this is called when browser changes size. Remove the
 // `rl.SetWindowSize` call if you don't want a resizable game.
 game_parent_window_size_changed :: proc(w, h: int) {
-	// rl.SetWindowSize(i32(w), i32(h))
+	rl.SetWindowSize(i32(w), i32(h))
 }

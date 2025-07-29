@@ -132,15 +132,14 @@ MS_Game :: struct {
 	current_chip:                 i64,
 	current_score:                i128,
 	draw_pile:                    Pile,
-	discard_pile:                 Pile,
 	played_pile:                  Pile,
+	scoring_cards_handles:        Pile,
 	hand_pile:                    Pile,
 	selected_cards:               Pile,
 	has_refreshed_selected_cards: bool,
 	hovered_card:                 CardHandle,
 	previous_hovered_card:        CardHandle,
 	selected_hand:                HandType,
-	scoring_cards_handles:        ScoringPile,
 }
 
 GameSate :: union {
@@ -179,6 +178,7 @@ CardLayout :: struct {
 }
 
 next_hand :: proc(ms: ^MS_Game) {
+	empty_pile(&ms.played_pile)
 	hand_size := i32(len(ms.hand_pile))
 	if hand_size < BASE_DRAW_AMOUNT {
 		draw_cards_into(&ms.draw_pile, &ms.hand_pile, BASE_DRAW_AMOUNT - hand_size)
@@ -203,7 +203,6 @@ init_MS_Game :: proc() -> MainState {
 	log.info("init_MS_Game")
 	deck := init_deck()
 	draw_pile := make(Pile)
-	discard_pile := make(Pile)
 	played_pile := make(Pile)
 	hand_pile := make(Pile)
 	selected_cards := make(Pile)
@@ -213,7 +212,6 @@ init_MS_Game :: proc() -> MainState {
 		ms = MS_Game {
 			deck = deck,
 			draw_pile = draw_pile,
-			discard_pile = discard_pile,
 			played_pile = played_pile,
 			hand_pile = hand_pile,
 			selected_cards = selected_cards,
@@ -268,7 +266,6 @@ discard_selected_cards :: proc(ms: ^MS_Game) {
 		handle := ms.hand_pile[i]
 		if handle_array_contains(ms.selected_cards, handle) {
 			ordered_remove(&ms.hand_pile, i)
-			append(&ms.discard_pile, handle)
 		}
 	}
 
@@ -369,7 +366,7 @@ draw_MS_Game :: proc(dt: f32) {
 		return
 	}
 
-	rl.ClearBackground(rl.BLACK)
+	rl.ClearBackground(rl.DARKGREEN)
 
 	hand_size := i32(len(ms.hand_pile))
 	for i := i32(0); i < hand_size; i += 1 {
@@ -516,8 +513,8 @@ draw_MS_Game :: proc(dt: f32) {
 
 		mouse_pos := rl.GetMousePosition()
 
-		play_color := rl.DARKGREEN
-		if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {play_color = rl.GREEN}
+		play_color := rl.DARKBLUE
+		if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {play_color = rl.BLUE}
 		rl.DrawRectangleRec(play_button_rect, play_color)
 		rl.DrawText(
 			"Play",
@@ -715,8 +712,6 @@ update_MS_Game :: proc(dt: f32) {
 			final_score := state.current_chips * state.base_mult
 			ms.current_score += i128(final_score)
 			log.info("Final score for hand:", final_score, "Total score:", ms.current_score)
-
-			draw_cards_into(&ms.played_pile, &ms.discard_pile, played_size)
 
 			next_hand(ms)
 		}
