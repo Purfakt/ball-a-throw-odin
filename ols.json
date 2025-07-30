@@ -7,11 +7,18 @@
   "enable_snippets": true,
   "profile": "default",
   "profiles": [
-    { "name": "default", "checker_path": ["src"] },
+    {
+      "name": "default",
+      "checker_path": [
+        "src"
+      ]
+    },
     {
       "name": "linux_profile",
       "os": "linux",
-      "checker_path": ["src/game.odin"]
+      "checker_path": [
+        "src/game.odin"
+      ]
     }
   ]
 }

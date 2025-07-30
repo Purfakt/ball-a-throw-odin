@@ -3,19 +3,21 @@ package game
 import "core:fmt"
 import rl "vendor:raylib"
 
-MS_Menu :: struct {}
+MS_MainMenu :: struct {}
 
 init_MS_Menu :: proc() -> MainState {
-	return MainState{ms = MS_Menu{}, draw = draw_MS_Menu, update = update_MS_Menu}
-}
-
-update_MS_Menu :: proc(dt: f32) {
-	if rl.IsKeyPressed(.SPACE) {
-		transition_to(proc() -> MainState {return init_MS_Game()})
+	return MainState {
+		ms = new(MS_MainMenu),
+		draw = draw_MS_Menu,
+		update = update_MS_Menu,
+		delete = delete_MS_Menu,
 	}
 }
 
-draw_MS_Menu :: proc(dt: f32, ui: UiContext) {
+update_MS_Menu :: proc(ctx: ^GameContext, dt: f32) {
+}
+
+draw_MS_Menu :: proc(ctx: ^GameContext, dt: f32, ui: UiContext) {
 	w := i32(ui.w)
 	h := i32(ui.h)
 	rl.ClearBackground(rl.BLACK)
@@ -41,4 +43,10 @@ draw_MS_Menu :: proc(dt: f32, ui: UiContext) {
 		rl.WHITE,
 	)
 	rl.EndMode2D()
+}
+
+delete_MS_Menu :: proc(ctx: ^GameContext) {
+	if ms_ptr, ok := ctx.state.ms.(^MS_MainMenu); ok {
+		free(ms_ptr)
+	}
 }

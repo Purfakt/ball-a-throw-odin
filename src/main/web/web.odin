@@ -13,6 +13,9 @@ import game "../.."
 @(private = "file")
 web_context: runtime.Context
 
+@(private = "file")
+game_ctx: ^game.GameContext
+
 @(export)
 main_start :: proc "c" () {
 	context = runtime.default_context()
@@ -31,20 +34,20 @@ main_start :: proc "c" () {
 	web_context = context
 
 	game.game_init_window()
-	game.game_init()
+	game_ctx = game.game_init()
 }
 
 @(export)
 main_update :: proc "c" () -> bool {
 	context = web_context
-	game.game_update()
+	game.game_update(game_ctx)
 	return game.game_should_run()
 }
 
 @(export)
 main_end :: proc "c" () {
 	context = web_context
-	game.game_shutdown()
+	game.game_shutdown(game_ctx)
 	game.game_shutdown_window()
 }
 

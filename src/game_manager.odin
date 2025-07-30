@@ -1,41 +1,14 @@
-/*
-This file is the starting point of your game.
-
-Some important procedures are:
-- game_init_window: Opens the window
-- game_init: Sets up the game state
-- game_update: Run once per frame
-- game_should_close: For stopping your game when close button is pressed
-- game_shutdown: Shuts down game and frees memory
-- game_shutdown_window: Closes window
-
-The procs above are used regardless if you compile using the `build_release`
-script or the `build_hot_reload` script. However, in the hot reload case, the
-contents of this file is compiled as part of `build/hot_reload/game.dll` (or
-.dylib/.so on mac/linux). In the hot reload cases some other procedures are
-also used in order to facilitate the hot reload functionality:
-
-- game_memory: Run just before a hot reload. That way game_hot_reload.exe has a
-      pointer to the game's memory that it can hand to the new game DLL.
-- game_hot_reloaded: Run after a hot reload so that the `gm` global
-      variable can be set to whatever pointer it was in the old DLL.
-
-NOTE: When compiled as part of `build_release`, `build_debug` or `build_web`
-then this whole package is just treated as a normal Odin package. No DLL is
-created.
-*/
-
 package game
 
-// import "core:fmt"
+import "core:log"
+import c "core_game"
 import rl "vendor:raylib"
 
-Game_Memory :: struct {
+GameContext :: struct {
 	state:          MainState,
+	run_data:       ^RunData,
 	input_commands: [dynamic]Input_Command,
 }
-
-gm: ^Game_Memory
 
 game_camera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())
@@ -50,31 +23,31 @@ ui_camera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-update :: proc(dt: f32, ui: UiContext) {
-	if gm.state.in_transition {
-		update_transition(dt)
+update :: proc(ctx: ^GameContext, dt: f32, ui: UiContext) {
+	if ctx.state.in_transition {
+		update_transition(ctx, dt)
 		return
 	}
-	handle_input(ui)
-	gm.state.update(dt)
+	handle_input(ctx, ui)
+	ctx.state.update(ctx, dt)
 }
 
 
-draw :: proc(dt: f32, ui: UiContext) {
+draw :: proc(ctx: ^GameContext, dt: f32, ui: UiContext) {
 	rl.BeginDrawing()
 
-	gm.state.draw(dt, ui)
-	if gm.state.in_transition {draw_transition(gm.state.transition.fade)}
+	ctx.state.draw(ctx, dt, ui)
+	if ctx.state.in_transition {draw_transition(ctx.state.transition.fade)}
 	rl.EndDrawing()
 }
 
 @(export)
-game_update :: proc() {
+game_update :: proc(ctx: ^GameContext) {
 	dt := rl.GetFrameTime()
 	ui := UiContext{f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight()), rl.GetMousePosition()}
 
-	update(dt, ui)
-	draw(dt, ui)
+	update(ctx, dt, ui)
+	draw(ctx, dt, ui)
 	free_all(context.temp_allocator)
 }
 
@@ -88,18 +61,26 @@ game_init_window :: proc() {
 }
 
 @(export)
-game_init :: proc() {
+game_init :: proc() -> ^GameContext {
 	rl.InitAudioDevice()
 	rl.SetAudioStreamBufferSizeDefault(4096)
 
-	gm = new(Game_Memory)
+	gm := new(GameContext)
 
-	gm^ = Game_Memory {
-		// state = init_MS_Menu(),
-		state = init_MS_Game(),
+	run_data := new(RunData)
+
+	run_data.deck = c.init_deck()
+	run_data.discard_per_blind = 3
+	run_data.hands_per_blind = 3
+
+	gm^ = GameContext {
+		run_data = run_data,
+		state    = init_MS_Menu(),
+		// state    = init_MS_Game(run_data),
 	}
-
+	log.info("game_init")
 	game_hot_reloaded(gm)
+	return gm
 }
 
 @(export)
@@ -115,13 +96,13 @@ game_should_run :: proc() -> bool {
 }
 
 @(export)
-game_shutdown :: proc() {
+game_shutdown :: proc(ctx: ^GameContext) {
 	rl.CloseAudioDevice()
-	if gm.state.delete != nil {
-		gm.state.delete()
+	if ctx.state.delete != nil {
+		ctx.state.delete(ctx)
 	}
-	delete(gm.input_commands)
-	free(gm)
+	delete(ctx.input_commands)
+	free(ctx)
 }
 
 @(export)
@@ -130,18 +111,17 @@ game_shutdown_window :: proc() {
 }
 
 @(export)
-game_memory :: proc() -> rawptr {
-	return gm
+game_memory :: proc(ctx: ^GameContext) -> rawptr {
+	return ctx
 }
 
 @(export)
 game_memory_size :: proc() -> int {
-	return size_of(Game_Memory)
+	return size_of(GameContext)
 }
 
 @(export)
 game_hot_reloaded :: proc(mem: rawptr) {
-	gm = (^Game_Memory)(mem)
 
 	// Here you can also set your own global variables. A good idea is to make
 	// your global variables into pointers that point to something inside

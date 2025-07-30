@@ -41,8 +41,8 @@ copy_dll :: proc(to: string) -> bool {
 Game_API :: struct {
 	lib:               dynlib.Library,
 	init_window:       proc(),
-	init:              proc(),
-	update:            proc(),
+	init:              proc() -> rawptr,
+	update:            proc(ctx: rawptr),
 	should_run:        proc() -> bool,
 	shutdown:          proc(),
 	shutdown_window:   proc(),
@@ -134,12 +134,12 @@ main :: proc() {
 
 	game_api_version += 1
 	game_api.init_window()
-	game_api.init()
+	ctx := game_api.init()
 
 	old_game_apis := make([dynamic]Game_API, default_allocator)
 
 	for game_api.should_run() {
-		game_api.update()
+		game_api.update(ctx)
 		force_reload := game_api.force_reload()
 		force_restart := game_api.force_restart()
 		reload := force_reload || force_restart

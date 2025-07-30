@@ -46,14 +46,14 @@ main :: proc() {
 	}
 
 	game.game_init_window()
-	game.game_init()
+	ctx := game.game_init()
 
 	for game.game_should_run() {
-		game.game_update()
+		game.game_update(ctx)
 	}
 
 	free_all(context.temp_allocator)
-	game.game_shutdown()
+	game.game_shutdown(ctx)
 	game.game_shutdown_window()
 
 	when USE_TRACKING_ALLOCATOR {

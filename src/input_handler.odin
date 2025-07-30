@@ -1,5 +1,6 @@
 package game
 
+import c "core_game"
 import rl "vendor:raylib"
 
 Input_Command :: union {
@@ -14,24 +15,43 @@ Input_Command :: union {
 }
 
 Input_Command_Select_Card :: struct {
-	handle: CardHandle,
+	handle: c.CardHandle,
 }
 Input_Command_Play_Hand :: struct {}
 Input_Command_Discard_Hand :: struct {}
 Input_Command_Next_Hand :: struct {}
 Input_Command_Start_Drag :: struct {
-	handle: CardHandle,
+	handle: c.CardHandle,
 }
 Input_Command_End_Drag :: struct {}
 Input_Command_Sort_By_Rank :: struct {}
 Input_Command_Sort_By_Suite :: struct {}
 
-handle_input :: proc(ui: UiContext) {
-	if gm.state.in_transition {
+handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
+	if ctx.state.in_transition {
 		return
 	}
 
-	ms, game_ok := &gm.state.ms.(MS_Game)
+	switch ms_ptr in ctx.state.ms {
+	case ^MS_MainMenu:
+		handle_main_menu_input(ctx, ui)
+	case ^MS_GamePlay:
+		handle_gameplay_input(ctx, ui)
+	}
+}
+
+handle_main_menu_input :: proc(ctx: ^GameContext, ui: UiContext) {
+	if rl.IsKeyPressed(.SPACE) {
+		transition_to_game_play(ctx)
+	}
+}
+
+handle_gameplay_input :: proc(ctx: ^GameContext, ui: UiContext) {
+	if ctx.state.in_transition {
+		return
+	}
+
+	ms, game_ok := ctx.state.ms.(^MS_GamePlay)
 	gs := ms.gs
 
 	if !game_ok {
@@ -58,7 +78,7 @@ handle_input :: proc(ui: UiContext) {
 	if ms.is_potential_drag {
 		if rl.IsMouseButtonReleased(.LEFT) {
 			append(
-				&gm.input_commands,
+				&ctx.input_commands,
 				Input_Command_Select_Card{handle = ms.potential_drag_handle},
 			)
 			ms.is_potential_drag = false
@@ -67,7 +87,7 @@ handle_input :: proc(ui: UiContext) {
 			delta := rl.Vector2Distance(ui.mouse_pos, ms.click_start_pos)
 			if delta > DRAG_THRESHOLD {
 				append(
-					&gm.input_commands,
+					&ctx.input_commands,
 					Input_Command_Start_Drag{handle = ms.potential_drag_handle},
 				)
 				ms.is_potential_drag = false
@@ -78,7 +98,7 @@ handle_input :: proc(ui: UiContext) {
 
 	if rl.IsMouseButtonReleased(.LEFT) {
 		if ms.is_dragging {
-			append(&gm.input_commands, Input_Command_End_Drag{})
+			append(&ctx.input_commands, Input_Command_End_Drag{})
 		}
 	}
 
@@ -94,37 +114,37 @@ handle_input :: proc(ui: UiContext) {
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
-		play_button_rect := get_play_button_rect(ms^, ui)
-		discard_button_rect := get_discard_button_rect(ms^, ui)
+		play_button_rect := get_play_button_rect(ms, ui)
+		discard_button_rect := get_discard_button_rect(ms, ui)
 		rank_button_rect := get_sort_rank_button_rect(ui)
 		suite_button_rect := get_sort_suite_button_rect(ui)
 
 		if rl.CheckCollisionPointRec(ui.mouse_pos, play_button_rect) {
-			append(&gm.input_commands, Input_Command_Play_Hand{})
+			append(&ctx.input_commands, Input_Command_Play_Hand{})
 			return
 		}
 		if rl.CheckCollisionPointRec(ui.mouse_pos, discard_button_rect) {
-			append(&gm.input_commands, Input_Command_Discard_Hand{})
+			append(&ctx.input_commands, Input_Command_Discard_Hand{})
 			return
 		}
 		if rl.CheckCollisionPointRec(ui.mouse_pos, rank_button_rect) {
-			append(&gm.input_commands, Input_Command_Sort_By_Rank{})
+			append(&ctx.input_commands, Input_Command_Sort_By_Rank{})
 			return
 		}
 		if rl.CheckCollisionPointRec(ui.mouse_pos, suite_button_rect) {
-			append(&gm.input_commands, Input_Command_Sort_By_Suite{})
+			append(&ctx.input_commands, Input_Command_Sort_By_Suite{})
 			return
 		}
 	}
 
 	if rl.IsMouseButtonReleased(.LEFT) {
 		if ms.is_dragging {
-			append(&gm.input_commands, Input_Command_End_Drag{})
+			append(&ctx.input_commands, Input_Command_End_Drag{})
 		}
 	}
 
 	if rl.IsKeyPressed(.R) {
-		append(&gm.input_commands, Input_Command_Next_Hand{})
+		append(&ctx.input_commands, Input_Command_Next_Hand{})
 		return
 	}
 }
