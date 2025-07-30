@@ -28,16 +28,36 @@ draw_hand_indicator :: proc(hand: HandType, ui: UiContext) {
 	}
 }
 
+draw_sort_buttons :: proc(ms: MS_Game, ui: UiContext) {
+	rank_button_rect := get_sort_rank_button_rect(ui)
+	suite_button_rect := get_sort_suite_button_rect(ui)
+
+	rank_color := rl.DARKPURPLE
+	if rl.CheckCollisionPointRec(ui.mouse_pos, rank_button_rect) {rank_color = rl.PURPLE}
+	rl.DrawRectangleRec(rank_button_rect, rank_color)
+	rl.DrawText(
+		"Sort Rank",
+		i32(rank_button_rect.x) + 30,
+		i32(rank_button_rect.y) + 15,
+		20,
+		rl.WHITE,
+	)
+
+	suite_color := rl.DARKPURPLE
+	if rl.CheckCollisionPointRec(ui.mouse_pos, suite_button_rect) {suite_color = rl.PURPLE}
+	rl.DrawRectangleRec(suite_button_rect, suite_color)
+	rl.DrawText(
+		"Sort Suite",
+		i32(suite_button_rect.x) + 30,
+		i32(suite_button_rect.y) + 15,
+		20,
+		rl.WHITE,
+	)
+}
+
 draw_play_discard_buttons :: proc(ms: MS_Game, ui: UiContext) {
-	button_w, button_h := 150, 50
-	button_y := ui.h - f32(CARD_HEIGHT) - f32(button_h) - 40
-	play_button_rect := rl.Rectangle{ui.w / 2 + 20, button_y, f32(button_w), f32(button_h)}
-	discard_button_rect := rl.Rectangle {
-		ui.w / 2 - f32(button_w) - 20,
-		button_y,
-		f32(button_w),
-		f32(button_h),
-	}
+	play_button_rect := get_play_button_rect(ms, ui)
+	discard_button_rect := get_discard_button_rect(ms, ui)
 
 	mouse_pos := ui.mouse_pos
 
@@ -56,6 +76,42 @@ draw_play_discard_buttons :: proc(ms: MS_Game, ui: UiContext) {
 		20,
 		rl.WHITE,
 	)
+}
+
+get_sort_rank_button_rect :: proc(ui: UiContext) -> rl.Rectangle {
+	button_w, button_h := 150, 50
+	button_y := ui.h - f32(CARD_HEIGHT) - f32(button_h) - 40
+	return {ui.w / 2 + 20, button_y, f32(button_w), f32(button_h)}
+}
+
+get_sort_suite_button_rect :: proc(ui: UiContext) -> rl.Rectangle {
+	button_w, button_h := 150, 50
+	button_y := ui.h - f32(CARD_HEIGHT) - f32(button_h) - 40
+	return {ui.w / 2 - f32(button_w) - 20, button_y, f32(button_w), f32(button_h)}
+}
+
+get_play_button_rect :: proc(ms: MS_Game, ui: UiContext) -> rl.Rectangle {
+	hand_size := i32(len(ms.hand_pile))
+	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
+	start_x := i32(ui.w / 2) - (hand_w / 2)
+	end_x := start_x + hand_w
+
+	button_w, button_h := 150, 50
+	button_y := ui.h - f32(CARD_HEIGHT) - f32(CARD_MARGIN)
+
+	return {f32(end_x) + 40, button_y, f32(button_w), f32(button_h)}
+}
+
+get_discard_button_rect :: proc(ms: MS_Game, ui: UiContext) -> rl.Rectangle {
+	hand_size := i32(len(ms.hand_pile))
+	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
+	start_x := i32(ui.w / 2) - (hand_w / 2)
+	end_x := start_x + hand_w
+
+	button_w, button_h := 150, 50
+	button_y := ui.h - f32(CARD_HEIGHT) - f32(CARD_MARGIN)
+
+	return {f32(end_x) + 40, button_y - f32(button_h) - 20, f32(button_w), f32(button_h)}
 }
 
 get_card_hand_target_layout :: proc(

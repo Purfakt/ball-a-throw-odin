@@ -5,7 +5,7 @@ import rl "vendor:raylib"
 MainState :: struct {
 	ms:            MS,
 	update:        proc(dt: f32),
-	draw:          proc(dt: f32),
+	draw:          proc(dt: f32, ui: UiContext),
 	delete:        proc(),
 	in_transition: bool,
 	transition:    Transition,

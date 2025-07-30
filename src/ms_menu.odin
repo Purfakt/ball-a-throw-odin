@@ -15,9 +15,9 @@ update_MS_Menu :: proc(dt: f32) {
 	}
 }
 
-draw_MS_Menu :: proc(dt: f32) {
-	w := rl.GetScreenWidth()
-	h := rl.GetScreenHeight()
+draw_MS_Menu :: proc(dt: f32, ui: UiContext) {
+	w := i32(ui.w)
+	h := i32(ui.h)
 	rl.ClearBackground(rl.BLACK)
 	title_text_font_size := i32(36)
 	title_text := fmt.ctprintf("Ball-A-Throw")

@@ -25,6 +25,7 @@ MS_Game :: struct {
 	hovered_card:                 CardHandle,
 	previous_hovered_card:        CardHandle,
 	has_refreshed_selected_cards: bool,
+	sort_method:                  SortMethod,
 	// Dragging
 	is_potential_drag:            bool,
 	potential_drag_handle:        CardHandle,
@@ -170,13 +171,41 @@ replenish_hand_and_start_deal :: proc(ms: ^MS_Game) {
 		}
 	}
 
+	sort_hand(ms)
+
 	ms.gs = GS_DrawingCards {
 		deal_timer = 0,
 		deal_index = hand_size_before_draw,
 	}
 }
 
-draw_MS_Game :: proc(dt: f32) {
+sort_hand :: proc(ms: ^MS_Game) {
+	switch ms.sort_method {
+	case .ByRank:
+		slice.sort_by(ms.hand_pile[:], proc(a, b: CardHandle) -> bool {
+			ms := gm.state.ms.(MS_Game)
+			deck := &ms.deck
+			card_a := hm.get(deck, a)
+			card_b := hm.get(deck, b)
+			return card_a.data.rank > card_b.data.rank
+		})
+	case .BySuite:
+		slice.sort_by(ms.hand_pile[:], proc(a, b: CardHandle) -> bool {
+			ms := gm.state.ms.(MS_Game)
+			deck := &ms.deck
+			card_a := hm.get(deck, a)
+			card_b := hm.get(deck, b)
+			if card_a.data.suite != card_b.data.suite {
+				return card_a.data.suite < card_b.data.suite
+			}
+			return card_a.data.rank > card_b.data.rank
+		})
+	case .Manual:
+		break
+	}
+}
+
+draw_MS_Game :: proc(dt: f32, ui: UiContext) {
 	ms, game_ok := gm.state.ms.(MS_Game)
 
 	if !game_ok {
@@ -220,15 +249,10 @@ draw_MS_Game :: proc(dt: f32) {
 		}
 	}
 
-	w := f32(rl.GetScreenWidth())
-	h := f32(rl.GetScreenHeight())
-	mouse_pos := rl.GetMousePosition()
-
-	ui := UiContext{w, h, mouse_pos}
-
 	if _, ok := ms.gs.(GS_SelectingCards); ok {
 		draw_hand_indicator(ms.selected_hand, ui)
 		draw_play_discard_buttons(ms, ui)
+		draw_sort_buttons(ms, ui)
 	}
 
 	if state, ok := ms.gs.(GS_PlayingCards); ok {
@@ -520,7 +544,16 @@ process_command :: proc(ms: ^MS_Game, command: Input_Command) {
 		ms.dragged_card_handle = {}
 		ms.drag_start_index = -1
 		ms.drop_preview_index = -1
+		ms.sort_method = .Manual
+	case Input_Command_Sort_By_Rank:
+		ms.sort_method = .ByRank
+		sort_hand(ms)
+
+	case Input_Command_Sort_By_Suite:
+		ms.sort_method = .BySuite
+		sort_hand(ms)
 	}
+
 }
 
 delete_MS_Game :: proc() {

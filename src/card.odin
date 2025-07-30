@@ -62,6 +62,12 @@ Hands :: enum {
 	None,
 }
 
+SortMethod :: enum {
+	Manual,
+	ByRank,
+	BySuite,
+}
+
 SuiteString := [Suite]string {
 	.Heart   = "H",
 	.Diamond = "D",

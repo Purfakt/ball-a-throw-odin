@@ -50,20 +50,20 @@ ui_camera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-update :: proc(dt: f32) {
+update :: proc(dt: f32, ui: UiContext) {
 	if gm.state.in_transition {
 		update_transition(dt)
 		return
 	}
-	handle_input()
+	handle_input(ui)
 	gm.state.update(dt)
 }
 
 
-draw :: proc(dt: f32) {
+draw :: proc(dt: f32, ui: UiContext) {
 	rl.BeginDrawing()
 
-	gm.state.draw(dt)
+	gm.state.draw(dt, ui)
 	if gm.state.in_transition {draw_transition(gm.state.transition.fade)}
 	rl.EndDrawing()
 }
@@ -71,8 +71,10 @@ draw :: proc(dt: f32) {
 @(export)
 game_update :: proc() {
 	dt := rl.GetFrameTime()
-	update(dt)
-	draw(dt)
+	ui := UiContext{f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight()), rl.GetMousePosition()}
+
+	update(dt, ui)
+	draw(dt, ui)
 	free_all(context.temp_allocator)
 }
 
