@@ -17,10 +17,10 @@ MS_Game :: struct {
 	scoring_cards_handles:        Selection,
 	hand_pile:                    Pile,
 	selected_cards:               Pile,
-	has_refreshed_selected_cards: bool,
 	hovered_card:                 CardHandle,
 	previous_hovered_card:        CardHandle,
 	selected_hand:                HandType,
+	has_refreshed_selected_cards: bool,
 }
 
 GameSate :: union {
@@ -89,25 +89,7 @@ next_hand :: proc(ms: ^MS_Game) {
 	empty_pile(&ms.played_pile)
 	empty_pile(&ms.selected_cards)
 	ms.selected_hand = .None
-
-	hand_size := i32(len(ms.hand_pile))
-	if hand_size < BASE_DRAW_AMOUNT {
-		draw_cards_into(&ms.draw_pile, &ms.hand_pile, BASE_DRAW_AMOUNT - hand_size)
-		for i := i32(0); i < hand_size; i += 1 {
-			handle := ms.hand_pile[i]
-			card := hm.get(&ms.deck, handle)
-			if card == nil {
-				continue
-			}
-			card.position = DECK_POSITION
-		}
-	}
-
-
-	ms.gs = GS_DrawingCards {
-		deal_timer = 0,
-		deal_index = 0,
-	}
+	replenish_hand_and_start_deal(ms)
 }
 
 play_selected_cards :: proc(ms: ^MS_Game) {
@@ -142,7 +124,6 @@ play_selected_cards :: proc(ms: ^MS_Game) {
 
 discard_selected_cards :: proc(ms: ^MS_Game) {
 	num_to_discard := len(ms.selected_cards)
-	hand_size := len(ms.hand_pile)
 	if num_to_discard == 0 {
 		return
 	}
@@ -153,23 +134,31 @@ discard_selected_cards :: proc(ms: ^MS_Game) {
 			ordered_remove(&ms.hand_pile, i)
 		}
 	}
-
 	empty_pile(&ms.selected_cards)
+	ms.selected_hand = .None
 
-	draw_cards_into(&ms.draw_pile, &ms.hand_pile, i32(num_to_discard))
+	replenish_hand_and_start_deal(ms)
+}
 
-	for i := hand_size - num_to_discard; i < hand_size; i += 1 {
-		handle := ms.hand_pile[i]
-		card := hm.get(&ms.deck, handle)
-		if card == nil {
-			continue
+replenish_hand_and_start_deal :: proc(ms: ^MS_Game) {
+	hand_size_before_draw := i32(len(ms.hand_pile))
+
+	if hand_size_before_draw < BASE_DRAW_AMOUNT {
+		num_to_draw := BASE_DRAW_AMOUNT - hand_size_before_draw
+		draw_cards_into(&ms.draw_pile, &ms.hand_pile, num_to_draw)
+
+		for i := hand_size_before_draw; i < i32(len(ms.hand_pile)); i += 1 {
+			handle := ms.hand_pile[i]
+			card := hm.get(&ms.deck, handle)
+			if card != nil {
+				card.position = DECK_POSITION
+			}
 		}
-		card.position = DECK_POSITION
 	}
 
 	ms.gs = GS_DrawingCards {
 		deal_timer = 0,
-		deal_index = 0,
+		deal_index = hand_size_before_draw,
 	}
 }
 
@@ -411,7 +400,11 @@ update_GS_playing_cards :: proc(ms: ^MS_Game, gs: ^GS_PlayingCards, dt: f32) {
 	if gs.phase == .Finishing && gs.animation_timer <= 0 {
 		final_score := gs.current_chips * gs.base_mult
 		ms.current_score += i128(final_score)
-		next_hand(ms)
+
+		empty_pile(&ms.played_pile)
+		ms.selected_hand = .None
+
+		replenish_hand_and_start_deal(ms)
 	}
 }
 
