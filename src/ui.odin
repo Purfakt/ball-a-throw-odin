@@ -9,9 +9,13 @@ UiContext :: struct {
 	mouse_pos: rl.Vector2,
 }
 
-draw_total_score :: proc(score: i128, ui: UiContext) {
-	total_score_text := fmt.ctprintf("Score: %v", score)
+draw_blind_info :: proc(ms: MS_Game, ui: UiContext) {
+	total_score_text := fmt.ctprintf("Score: %v", ms.blind_score)
+	hands_text := fmt.ctprintf("Hands: %v", ms.hands_per_blind - ms.hands_played)
+	discards_text := fmt.ctprintf("Discards: %v", ms.discard_per_blind - ms.discards_used)
 	rl.DrawText(total_score_text, 20, 20, 30, rl.WHITE)
+	rl.DrawText(hands_text, 20, 55, 30, rl.WHITE)
+	rl.DrawText(discards_text, 20, 90, 30, rl.WHITE)
 }
 
 draw_updating_score :: proc(chips, mult: i64, ui: UiContext) {
@@ -74,6 +78,40 @@ draw_play_discard_buttons :: proc(ms: MS_Game, ui: UiContext) {
 		i32(discard_button_rect.x) + 35,
 		i32(discard_button_rect.y) + 15,
 		20,
+		rl.WHITE,
+	)
+}
+
+draw_game_over :: proc(ms: MS_Game, ui: UiContext) {
+	w := i32(ui.w)
+	h := i32(ui.h)
+	rl.DrawRectangle(0, 0, w, h, {0, 0, 0, 100})
+
+	game_over_font_size := i32(112)
+	game_over_text := fmt.ctprint("Game Over")
+	game_over_text_size := rl.MeasureText(game_over_text, game_over_font_size)
+
+	score_font_size := i32(60)
+	score_text := fmt.ctprintf("Score: %d", ms.current_score)
+	score_text_size := rl.MeasureText(score_text, score_font_size)
+
+	margin := i32(20)
+
+	total_vertical_size := game_over_font_size + margin + score_font_size
+
+	rl.DrawText(
+		game_over_text,
+		w / 2 - game_over_text_size / 2,
+		h / 2 - total_vertical_size / 2,
+		game_over_font_size,
+		rl.WHITE,
+	)
+
+	rl.DrawText(
+		score_text,
+		w / 2 - score_text_size / 2,
+		(h / 2 - total_vertical_size / 2) + game_over_font_size + margin,
+		score_font_size,
 		rl.WHITE,
 	)
 }

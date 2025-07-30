@@ -10,6 +10,12 @@ import rl "vendor:raylib"
 MS_Game :: struct {
 	gs:                           GameSate,
 	deck:                         Deck,
+	hands_per_blind:              i8,
+	discard_per_blind:            i8,
+	// Current blind
+	blind_score:                  i128,
+	hands_played:                 i8,
+	discards_used:                i8,
 	// Score
 	current_mult:                 i64,
 	current_chip:                 i64,
@@ -41,6 +47,8 @@ GameSate :: union {
 	GS_DrawingCards,
 	GS_SelectingCards,
 	GS_PlayingCards,
+	GS_WinningBlind,
+	GS_GameOver,
 }
 
 GS_DrawingCards :: struct {
@@ -64,6 +72,9 @@ GS_PlayingCards :: struct {
 	base_mult:       i64,
 	current_chips:   i64,
 }
+
+GS_GameOver :: struct {}
+GS_WinningBlind :: struct {}
 
 CardLayout :: struct {
 	target_rect:     rl.Rectangle,
@@ -89,6 +100,9 @@ init_MS_Game :: proc() -> MainState {
 			hand_pile = hand_pile,
 			selected_cards = selected_cards,
 			drag_start_index = -1,
+			hands_per_blind = 3,
+			discard_per_blind = 3,
+			blind_score = 450,
 		},
 		draw = draw_MS_Game,
 		update = update_MS_Game,
@@ -126,6 +140,7 @@ play_selected_cards :: proc(ms: ^MS_Game) {
 		}
 	}
 	empty_pile(&ms.selected_cards)
+	ms.hands_played += 1
 
 	ms.gs = GS_PlayingCards {
 		phase           = .DealingToTable,
@@ -151,6 +166,7 @@ discard_selected_cards :: proc(ms: ^MS_Game) {
 	}
 	empty_pile(&ms.selected_cards)
 	ms.selected_hand = .None
+	ms.discards_used += 1
 
 	replenish_hand_and_start_deal(ms)
 }
@@ -249,6 +265,11 @@ draw_MS_Game :: proc(dt: f32, ui: UiContext) {
 		}
 	}
 
+	if _, ok := ms.gs.(GS_GameOver); ok {
+		draw_game_over(ms, ui)
+		return
+	}
+
 	if _, ok := ms.gs.(GS_SelectingCards); ok {
 		draw_hand_indicator(ms.selected_hand, ui)
 		draw_play_discard_buttons(ms, ui)
@@ -259,7 +280,7 @@ draw_MS_Game :: proc(dt: f32, ui: UiContext) {
 		draw_updating_score(state.current_chips, state.base_mult, ui)
 	}
 
-	draw_total_score(ms.current_score, ui)
+	draw_blind_info(ms, ui)
 }
 
 update_MS_Game :: proc(dt: f32) {
@@ -287,6 +308,10 @@ update_MS_Game :: proc(dt: f32) {
 		update_GS_selecting_cards(ms, &state, dt)
 	case GS_PlayingCards:
 		update_GS_playing_cards(ms, &state, dt)
+	case GS_GameOver:
+		return
+	case GS_WinningBlind:
+		return
 	}
 
 	animation_speed: f32 = 10.0
@@ -402,6 +427,7 @@ update_GS_drawing_cards :: proc(ms: ^MS_Game, gs: ^GS_DrawingCards, dt: f32) {
 		}
 	}
 }
+
 update_GS_selecting_cards :: proc(ms: ^MS_Game, gs: ^GS_SelectingCards, dt: f32) {
 	if ms.hovered_card != ms.previous_hovered_card && ms.hovered_card != {} {
 		card := hm.get(&ms.deck, ms.hovered_card)
@@ -478,7 +504,13 @@ update_GS_playing_cards :: proc(ms: ^MS_Game, gs: ^GS_PlayingCards, dt: f32) {
 		empty_pile(&ms.played_pile)
 		ms.selected_hand = .None
 
-		replenish_hand_and_start_deal(ms)
+		if ms.hands_played < ms.hands_per_blind {
+			replenish_hand_and_start_deal(ms)
+		} else if ms.current_score < ms.blind_score {
+			ms.gs = GS_GameOver{}
+		} else {
+			ms.gs = GS_WinningBlind{}
+		}
 	}
 }
 
@@ -497,11 +529,15 @@ process_command :: proc(ms: ^MS_Game, command: Input_Command) {
 
 	case Input_Command_Play_Hand:
 		if !is_selecting_cards {break}
-		play_selected_cards(ms)
+		if ms.hands_played < ms.hands_per_blind {
+			play_selected_cards(ms)
+		}
 
 	case Input_Command_Discard_Hand:
 		if !is_selecting_cards {break}
-		discard_selected_cards(ms)
+		if ms.discards_used < ms.discard_per_blind {
+			discard_selected_cards(ms)
+		}
 
 	case Input_Command_Next_Hand:
 		next_hand(ms)
