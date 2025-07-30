@@ -79,6 +79,25 @@ get_card_hand_target_layout :: proc(
 	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
 	base_y := h - CARD_MARGIN - CARD_HEIGHT
 
+	if ms.is_dragging && handle != ms.dragged_card_handle {
+		logical_index := i
+		if logical_index > ms.drag_start_index {
+			logical_index -= 1
+		}
+
+		effective_preview := ms.drop_preview_index
+		if effective_preview > ms.drag_start_index {
+			effective_preview -= 1
+		}
+
+		visual_index := logical_index
+		if logical_index >= effective_preview {
+			visual_index += 1
+		}
+
+		base_x = start_x + visual_index * (CARD_WIDTH + CARD_MARGIN)
+	}
+
 	final_x := f32(base_x)
 	final_y := f32(base_y)
 	if is_selected {

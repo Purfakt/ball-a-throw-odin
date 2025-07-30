@@ -1,6 +1,7 @@
 package game
 
 import "core:log"
+import "core:math"
 import "core:math/linalg"
 import "core:slice"
 import hm "handle_map"
@@ -9,18 +10,30 @@ import rl "vendor:raylib"
 MS_Game :: struct {
 	gs:                           GameSate,
 	deck:                         Deck,
+	// Score
 	current_mult:                 i64,
 	current_chip:                 i64,
 	current_score:                i128,
+	selected_hand:                HandType,
+	// Piles
 	draw_pile:                    Pile,
 	played_pile:                  Pile,
-	scoring_cards_handles:        Selection,
 	hand_pile:                    Pile,
 	selected_cards:               Pile,
+	// User input
+	scoring_cards_handles:        Selection,
 	hovered_card:                 CardHandle,
 	previous_hovered_card:        CardHandle,
-	selected_hand:                HandType,
 	has_refreshed_selected_cards: bool,
+	// Dragging
+	is_potential_drag:            bool,
+	potential_drag_handle:        CardHandle,
+	click_start_pos:              rl.Vector2,
+	is_dragging:                  bool,
+	dragged_card_handle:          CardHandle,
+	dragged_card_offset:          rl.Vector2,
+	drag_start_index:             i32,
+	drop_preview_index:           i32,
 }
 
 GameSate :: union {
@@ -74,6 +87,7 @@ init_MS_Game :: proc() -> MainState {
 			played_pile = played_pile,
 			hand_pile = hand_pile,
 			selected_cards = selected_cards,
+			drag_start_index = -1,
 		},
 		draw = draw_MS_Game,
 		update = update_MS_Game,
@@ -174,9 +188,20 @@ draw_MS_Game :: proc(dt: f32) {
 	hand_size := i32(len(ms.hand_pile))
 	for i := i32(0); i < hand_size; i += 1 {
 		card_handle := ms.hand_pile[i]
-		card_instance := hm.get(&ms.deck, card_handle)
 
+		if ms.is_dragging && card_handle == ms.dragged_card_handle {
+			continue
+		}
+
+		card_instance := hm.get(&ms.deck, card_handle)
 		draw_card(card_instance^)
+	}
+
+	if ms.is_dragging {
+		card_instance := hm.get(&ms.deck, ms.dragged_card_handle)
+		if card_instance != nil {
+			draw_card(card_instance^)
+		}
 	}
 
 	played_size := i32(len(ms.played_pile))
@@ -247,6 +272,31 @@ update_MS_Game :: proc(dt: f32) {
 		handle := ms.hand_pile[i]
 		card_instance := hm.get(&ms.deck, handle)
 		if card_instance == nil {
+			continue
+		}
+
+		if ms.is_dragging {
+			w := i32(rl.GetScreenWidth())
+			center_w := w / 2
+			hand_w_calc := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
+			start_x := f32(center_w - (hand_w_calc / 2))
+			slot_width := f32(CARD_WIDTH + CARD_MARGIN)
+
+			mouse_pos := rl.GetMousePosition()
+			relative_x := mouse_pos.x - start_x
+			preview_index := i32(math.round(relative_x / slot_width))
+
+			if preview_index < 0 {preview_index = 0}
+			if preview_index > hand_size {preview_index = hand_size}
+			ms.drop_preview_index = preview_index
+		}
+
+		if ms.is_dragging && handle == ms.dragged_card_handle {
+			mouse_pos := rl.GetMousePosition()
+			card_instance.position = {
+				mouse_pos.x + ms.dragged_card_offset.x,
+				mouse_pos.y + ms.dragged_card_offset.y,
+			}
 			continue
 		}
 
@@ -431,6 +481,45 @@ process_command :: proc(ms: ^MS_Game, command: Input_Command) {
 
 	case Input_Command_Next_Hand:
 		next_hand(ms)
+	case Input_Command_Start_Drag:
+		if !is_selecting_cards {break}
+		card_instance := hm.get(&ms.deck, c.handle)
+		if card_instance != nil {
+			ms.is_dragging = true
+			ms.dragged_card_handle = c.handle
+			mouse_pos := rl.GetMousePosition()
+			ms.dragged_card_offset = {
+				card_instance.position.x - mouse_pos.x,
+				card_instance.position.y - mouse_pos.y,
+			}
+			ms.drag_start_index = -1
+			for &handle, i in ms.hand_pile {
+				if handle == c.handle {
+					ms.drag_start_index = i32(i)
+					break
+				}
+			}
+		}
+
+	case Input_Command_End_Drag:
+		if ms.is_dragging {
+			drop_index := ms.drop_preview_index
+
+			if drop_index > ms.drag_start_index {
+				drop_index -= 1
+			}
+
+			if drop_index != ms.drag_start_index {
+				old_handle := ms.dragged_card_handle
+				if handle_array_remove_handle(&ms.hand_pile, old_handle) {
+					inject_at(&ms.hand_pile, drop_index, old_handle)
+				}
+			}
+		}
+		ms.is_dragging = false
+		ms.dragged_card_handle = {}
+		ms.drag_start_index = -1
+		ms.drop_preview_index = -1
 	}
 }
 
