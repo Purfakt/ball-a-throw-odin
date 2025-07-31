@@ -5,7 +5,7 @@ import c "core_game"
 import rl "vendor:raylib"
 
 GameContext :: struct {
-	state:          MainState,
+	screen:         Screen,
 	run_data:       ^RunData,
 	input_commands: [dynamic]Input_Command,
 }
@@ -23,21 +23,20 @@ ui_camera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-update :: proc(ctx: ^GameContext, dt: f32, ui: UiContext) {
-	if ctx.state.in_transition {
+update :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
+	if ctx.screen.in_transition {
 		update_transition(ctx, dt)
 		return
 	}
-	handle_input(ctx, ui)
-	ctx.state.update(ctx, dt)
+	ctx.screen.update(ctx, ui, dt)
 }
 
 
-draw :: proc(ctx: ^GameContext, dt: f32, ui: UiContext) {
+draw :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	rl.BeginDrawing()
 
-	ctx.state.draw(ctx, dt, ui)
-	if ctx.state.in_transition {draw_transition(ctx.state.transition.fade)}
+	ctx.screen.draw(ctx, ui, dt)
+	if ctx.screen.in_transition {draw_transition(ctx.screen.transition.fade)}
 	rl.EndDrawing()
 }
 
@@ -46,8 +45,8 @@ game_update :: proc(ctx: ^GameContext) {
 	dt := rl.GetFrameTime()
 	ui := UiContext{f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight()), rl.GetMousePosition()}
 
-	update(ctx, dt, ui)
-	draw(ctx, dt, ui)
+	update(ctx, ui, dt)
+	draw(ctx, ui, dt)
 	free_all(context.temp_allocator)
 }
 
@@ -75,8 +74,8 @@ game_init :: proc() -> ^GameContext {
 
 	gm^ = GameContext {
 		run_data = run_data,
-		state    = init_MS_Menu(),
-		// state    = init_MS_Game(run_data),
+		screen   = init_menu_screen(),
+		// state    = init_game_play_screen(run_data),
 	}
 	log.info("game_init")
 	game_hot_reloaded(gm)
@@ -98,8 +97,8 @@ game_should_run :: proc() -> bool {
 @(export)
 game_shutdown :: proc(ctx: ^GameContext) {
 	rl.CloseAudioDevice()
-	if ctx.state.delete != nil {
-		ctx.state.delete(ctx)
+	if ctx.screen.delete != nil {
+		ctx.screen.delete(ctx)
 	}
 	delete(ctx.input_commands)
 	free(ctx)

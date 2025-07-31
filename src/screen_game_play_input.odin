@@ -1,6 +1,7 @@
 package game
 
 import c "core_game"
+import hm "handle_map"
 import rl "vendor:raylib"
 
 Input_Command :: union {
@@ -28,94 +29,75 @@ Input_Command_Sort_By_Rank :: struct {}
 Input_Command_Sort_By_Suite :: struct {}
 
 handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
-	if ctx.state.in_transition {
+	if ctx.screen.in_transition {
 		return
 	}
 
-	switch ms_ptr in ctx.state.ms {
-	case ^MS_MainMenu:
-		handle_main_menu_input(ctx, ui)
-	case ^MS_GamePlay:
-		handle_gameplay_input(ctx, ui)
-	}
-}
-
-handle_main_menu_input :: proc(ctx: ^GameContext, ui: UiContext) {
-	if rl.IsKeyPressed(.SPACE) {
-		transition_to_game_play(ctx)
-	}
-}
-
-handle_gameplay_input :: proc(ctx: ^GameContext, ui: UiContext) {
-	if ctx.state.in_transition {
-		return
-	}
-
-	ms, game_ok := ctx.state.ms.(^MS_GamePlay)
-	gs := ms.gs
+	data, game_ok := ctx.screen.data.(^GamePlayData)
 
 	if !game_ok {
 		return
 	}
+	phase := data.phase
 
-	ms.hovered_card = {}
+	data.hovered_card = {}
+
+	hand_size := i32(len(data.hand_pile))
 
 	if rl.IsMouseButtonPressed(.LEFT) {
-		hand_size := i32(len(ms.hand_pile))
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(ms, i)
+			target_layout, card_handle := get_card_hand_target_layout(data, i)
 			if rl.CheckCollisionPointRec(ui.mouse_pos, target_layout.target_rect) {
-				if _, is_selecting_cards := gs.(GS_SelectingCards); is_selecting_cards {
-					ms.is_potential_drag = true
-					ms.potential_drag_handle = card_handle
-					ms.click_start_pos = ui.mouse_pos
+				if _, is_selecting_cards := phase.(PhaseSelectingCards); is_selecting_cards {
+					data.is_potential_drag = true
+					data.potential_drag_handle = card_handle
+					data.click_start_pos = ui.mouse_pos
 				}
 				break
 			}
 		}
 	}
 
-	if ms.is_potential_drag {
+	if data.is_potential_drag {
 		if rl.IsMouseButtonReleased(.LEFT) {
 			append(
 				&ctx.input_commands,
-				Input_Command_Select_Card{handle = ms.potential_drag_handle},
+				Input_Command_Select_Card{handle = data.potential_drag_handle},
 			)
-			ms.is_potential_drag = false
-			ms.potential_drag_handle = {}
+			data.is_potential_drag = false
+			data.potential_drag_handle = {}
 		} else {
-			delta := rl.Vector2Distance(ui.mouse_pos, ms.click_start_pos)
+			delta := rl.Vector2Distance(ui.mouse_pos, data.click_start_pos)
 			if delta > DRAG_THRESHOLD {
 				append(
 					&ctx.input_commands,
-					Input_Command_Start_Drag{handle = ms.potential_drag_handle},
+					Input_Command_Start_Drag{handle = data.potential_drag_handle},
 				)
-				ms.is_potential_drag = false
-				ms.potential_drag_handle = {}
+				data.is_potential_drag = false
+				data.potential_drag_handle = {}
 			}
 		}
 	}
 
 	if rl.IsMouseButtonReleased(.LEFT) {
-		if ms.is_dragging {
+		if data.is_dragging {
 			append(&ctx.input_commands, Input_Command_End_Drag{})
 		}
 	}
 
-	if !ms.is_dragging && !ms.is_potential_drag {
-		hand_size := i32(len(ms.hand_pile))
+	if !data.is_dragging && !data.is_potential_drag {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(ms, i)
+			target_layout, card_handle := get_card_hand_target_layout(data, i)
 			if rl.CheckCollisionPointRec(ui.mouse_pos, target_layout.target_rect) {
-				ms.hovered_card = card_handle
+				data.hovered_card = card_handle
 				break
 			}
 		}
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
-		play_button_rect := get_play_button_rect(ms, ui)
-		discard_button_rect := get_discard_button_rect(ms, ui)
+		play_button_rect := get_play_button_rect(ui)
+		discard_button_rect := get_discard_button_rect(ui)
 		rank_button_rect := get_sort_rank_button_rect(ui)
 		suite_button_rect := get_sort_suite_button_rect(ui)
 
@@ -138,7 +120,7 @@ handle_gameplay_input :: proc(ctx: ^GameContext, ui: UiContext) {
 	}
 
 	if rl.IsMouseButtonReleased(.LEFT) {
-		if ms.is_dragging {
+		if data.is_dragging {
 			append(&ctx.input_commands, Input_Command_End_Drag{})
 		}
 	}
