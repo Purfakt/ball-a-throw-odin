@@ -1,23 +1,19 @@
 package game
 
-import "core:math"
-import "core:math/linalg"
-import "core:slice"
 import c "core_game"
-import hm "handle_map"
 
 GamePlayData :: struct {
 	phase:                        GamePlayPhase,
 	run_data:                     ^RunData,
 
 	// Current blind
-	blind_score:                  i128,
 	hands_played:                 i8,
 	discards_used:                i8,
+	blind_score:                  i64,
 	// Score
-	current_mult:                 i64,
-	current_chip:                 i64,
-	current_score:                i128,
+	current_mult:                 i32,
+	current_chip:                 i32,
+	current_score:                i64,
 	selected_hand:                c.HandType,
 	// Piles
 	draw_pile:                    c.Pile,
@@ -89,7 +85,7 @@ init_game_play_screen :: proc(run_data: ^RunData) -> Screen {
 	data.hand_pile = hand_pile
 	data.selected_cards = selected_cards
 	data.drag_start_index = -1
-	data.blind_score = 450
+	data.blind_score = c.score_at_least(data.run_data.current_blind, data.run_data.current_ante)
 
 
 	state := Screen {

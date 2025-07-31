@@ -36,7 +36,20 @@ update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	case PhaseGameOver:
 		return
 	case PhaseWinningBlind:
-		return
+		current_blind := ctx.run_data.current_blind
+		current_ante := ctx.run_data.current_ante
+
+		if current_blind == .Boss && current_ante != .Eight {
+			ctx.run_data.current_blind = .Little
+			ctx.run_data.current_ante = c.Ante(int(current_ante) + 1)
+		} else if current_blind == .Little {
+			ctx.run_data.current_blind = .Big
+		} else if current_blind == .Big {
+			ctx.run_data.current_blind = .Boss
+		} else {
+			// TODO: won the game
+		}
+		transition_to_ante(ctx)
 	}
 
 	animation_speed: f32 = 10.0
@@ -306,17 +319,17 @@ update_phase_playing_cards :: proc(data: ^GamePlayData, phase: ^PhasePlayingCard
 
 	if phase.step == .Finishing && phase.animation_timer <= 0 {
 		final_score := phase.current_chips * phase.base_mult
-		data.current_score += i128(final_score)
+		data.current_score += i64(final_score)
 
 		c.empty_pile(&data.played_pile)
 		data.selected_hand = .None
 
-		if data.hands_played < data.run_data.hands_per_blind {
-			replenish_hand_and_start_deal(data)
-		} else if data.current_score < data.blind_score {
-			data.phase = PhaseGameOver{}
-		} else {
+		if data.current_score >= data.blind_score {
 			data.phase = PhaseWinningBlind{}
+		} else if data.hands_played < data.run_data.hands_per_blind {
+			replenish_hand_and_start_deal(data)
+		} else {
+			data.phase = PhaseGameOver{}
 		}
 	}
 }
@@ -324,7 +337,7 @@ update_phase_playing_cards :: proc(data: ^GamePlayData, phase: ^PhasePlayingCard
 process_command :: proc(data: ^GamePlayData, command: Input_Command, ui: UiContext) {
 	phase := &data.phase
 	_, is_selecting_cards := phase.(PhaseSelectingCards)
-	switch type in command {
+	#partial switch type in command {
 	case Input_Command_Select_Card:
 		if !is_selecting_cards {break}
 		if c.handle_array_contains(data.selected_cards[:], type.handle) {

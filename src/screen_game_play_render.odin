@@ -68,30 +68,35 @@ draw_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 }
 
 draw_blind_info :: proc(data: ^GamePlayData, ui: UiContext) {
+	blind_score := c.score_at_least(data.run_data.current_blind, data.run_data.current_ante)
 	current_score_text := fmt.ctprintf("Score: %v", data.current_score)
-	blind_score_text := fmt.ctprintf("Blind: %v", data.blind_score)
+	blind_score_text := fmt.ctprintf("Blind: %v", blind_score)
 	hands_text := fmt.ctprintf("Hands: %v", data.run_data.hands_per_blind - data.hands_played)
 	discards_text := fmt.ctprintf(
 		"Discards: %v",
 		data.run_data.discard_per_blind - data.discards_used,
 	)
-	rl.DrawText(current_score_text, 20, 20, 30, rl.WHITE)
-	rl.DrawText(blind_score_text, 20, 55, 30, rl.WHITE)
-	rl.DrawText(hands_text, 20, 90, 30, rl.WHITE)
-	rl.DrawText(discards_text, 20, 125, 30, rl.WHITE)
+
+	info_area := rl.Rectangle{20, 20, 250, 140}
+	info_rects := vstack(info_area, 4, 5, context.temp_allocator)
+	rl.DrawText(current_score_text, i32(info_rects[0].x), i32(info_rects[0].y), 30, rl.WHITE)
+	rl.DrawText(blind_score_text, i32(info_rects[1].x), i32(info_rects[1].y), 30, rl.WHITE)
+	rl.DrawText(hands_text, i32(info_rects[2].x), i32(info_rects[2].y), 30, rl.WHITE)
+	rl.DrawText(discards_text, i32(info_rects[3].x), i32(info_rects[3].y), 30, rl.WHITE)
+
 }
 
 draw_updating_score :: proc(chips, mult: i64, ui: UiContext) {
 	score_text := fmt.ctprintf("%v x %v = %v", chips, mult, chips * mult)
-	text_size := rl.MeasureText(score_text, 40)
-	rl.DrawText(score_text, i32(ui.w / 2) - text_size / 2, i32(ui.h / 2) + 80, 40, rl.WHITE)
+	score_area := rl.Rectangle{0, ui.h / 2 + 80, ui.w, 40}
+	center_text_in_rect(score_text, score_area, 40, rl.WHITE)
 }
 
 draw_hand_indicator :: proc(hand: c.HandType, ui: UiContext) {
 	if hand != .None {
 		hand_text := fmt.ctprint(c.HandString[hand])
-		text_size := rl.MeasureText(hand_text, 30)
-		rl.DrawText(hand_text, i32(ui.w / 2) - text_size / 2, 40, 30, rl.GOLD)
+		indicator_area := rl.Rectangle{0, 40, ui.w, 30}
+		center_text_in_rect(hand_text, indicator_area, 30, rl.GOLD)
 	}
 }
 
@@ -103,28 +108,13 @@ draw_sort_buttons :: proc(ui: UiContext) {
 	sort_text_font_size := i32(20)
 	if rl.CheckCollisionPointRec(ui.mouse_pos, rank_button_rect) {rank_color = rl.PURPLE}
 	rl.DrawRectangleRec(rank_button_rect, rank_color)
-	sort_rank_text := fmt.ctprint("Sort Rank")
-	sort_rank_text_width := rl.MeasureText(sort_rank_text, sort_text_font_size)
-	rl.DrawText(
-		sort_rank_text,
-		i32(rank_button_rect.x) + i32(rank_button_rect.width / 2) - sort_rank_text_width / 2,
-		i32(rank_button_rect.y) + i32(rank_button_rect.height / 2) - sort_text_font_size / 2,
-		sort_text_font_size,
-		rl.WHITE,
-	)
+	center_text_in_rect("Sort Rank", rank_button_rect, sort_text_font_size, rl.WHITE)
+
 
 	suite_color := rl.DARKPURPLE
 	if rl.CheckCollisionPointRec(ui.mouse_pos, suite_button_rect) {suite_color = rl.PURPLE}
 	rl.DrawRectangleRec(suite_button_rect, suite_color)
-	sort_suite_text := fmt.ctprint("Sort Suite")
-	sort_suite_text_width := rl.MeasureText(sort_suite_text, sort_text_font_size)
-	rl.DrawText(
-		sort_suite_text,
-		i32(suite_button_rect.x) + i32(suite_button_rect.width / 2) - sort_suite_text_width / 2,
-		i32(suite_button_rect.y) + i32(suite_button_rect.height / 2) - sort_text_font_size / 2,
-		sort_text_font_size,
-		rl.WHITE,
-	)
+	center_text_in_rect("Sort Suite", suite_button_rect, sort_text_font_size, rl.WHITE)
 }
 
 draw_play_discard_buttons :: proc(ui: UiContext) {
@@ -138,28 +128,13 @@ draw_play_discard_buttons :: proc(ui: UiContext) {
 
 	if rl.CheckCollisionPointRec(mouse_pos, play_button_rect) {play_color = rl.BLUE}
 	rl.DrawRectangleRec(play_button_rect, play_color)
-	play_text := fmt.ctprint("Play")
-	play_text_width := rl.MeasureText(play_text, text_font_size)
-	rl.DrawText(
-		play_text,
-		i32(play_button_rect.x) + i32(play_button_rect.width / 2) - play_text_width / 2,
-		i32(play_button_rect.y) + i32(play_button_rect.height / 2) - text_font_size / 2,
-		text_font_size,
-		rl.WHITE,
-	)
+	center_text_in_rect("Play", play_button_rect, text_font_size, rl.WHITE)
+
 
 	discard_color := rl.MAROON
 	if rl.CheckCollisionPointRec(mouse_pos, discard_button_rect) {discard_color = rl.RED}
 	rl.DrawRectangleRec(discard_button_rect, discard_color)
-	discard_text := fmt.ctprint("Discard")
-	discard_text_width := rl.MeasureText(discard_text, text_font_size)
-	rl.DrawText(
-		discard_text,
-		i32(discard_button_rect.x) + i32(discard_button_rect.width / 2) - discard_text_width / 2,
-		i32(discard_button_rect.y) + i32(discard_button_rect.height / 2) - text_font_size / 2,
-		text_font_size,
-		rl.WHITE,
-	)
+	center_text_in_rect("Discard", discard_button_rect, text_font_size, rl.WHITE)
 }
 
 draw_game_over :: proc(data: ^GamePlayData, ui: UiContext) {
@@ -168,32 +143,17 @@ draw_game_over :: proc(data: ^GamePlayData, ui: UiContext) {
 	rl.DrawRectangle(0, 0, w, h, {0, 0, 0, 100})
 
 	game_over_font_size := i32(112)
-	game_over_text := fmt.ctprint("Game Over")
-	game_over_text_size := rl.MeasureText(game_over_text, game_over_font_size)
-
 	score_font_size := i32(60)
-	score_text := fmt.ctprintf("Score: %d", data.current_score)
-	score_text_size := rl.MeasureText(score_text, score_font_size)
 
 	margin := i32(20)
+	total_height := f32(game_over_font_size + margin + score_font_size)
+	game_over_area := rl.Rectangle{0, ui.h / 2 - total_height / 2, ui.w, total_height}
+	game_over_rects := vstack(game_over_area, 2, f32(margin), context.temp_allocator)
+	defer delete(game_over_rects)
 
-	total_vertical_size := game_over_font_size + margin + score_font_size
-
-	rl.DrawText(
-		game_over_text,
-		w / 2 - game_over_text_size / 2,
-		h / 2 - total_vertical_size / 2,
-		game_over_font_size,
-		rl.WHITE,
-	)
-
-	rl.DrawText(
-		score_text,
-		w / 2 - score_text_size / 2,
-		(h / 2 - total_vertical_size / 2) + game_over_font_size + margin,
-		score_font_size,
-		rl.WHITE,
-	)
+	center_text_in_rect("Game Over", game_over_rects[0], game_over_font_size, rl.WHITE)
+	score_text := fmt.ctprintf("Score: %d", data.current_score)
+	center_text_in_rect(score_text, game_over_rects[1], score_font_size, rl.WHITE)
 }
 
 get_sort_rank_button_rect :: proc(ui: UiContext) -> rl.Rectangle {

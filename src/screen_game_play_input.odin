@@ -1,7 +1,6 @@
 package game
 
 import c "core_game"
-import hm "handle_map"
 import rl "vendor:raylib"
 
 Input_Command :: union {
@@ -13,6 +12,7 @@ Input_Command :: union {
 	Input_Command_End_Drag,
 	Input_Command_Sort_By_Rank,
 	Input_Command_Sort_By_Suite,
+	Input_Command_Select_Blind,
 }
 
 Input_Command_Select_Card :: struct {
@@ -27,6 +27,9 @@ Input_Command_Start_Drag :: struct {
 Input_Command_End_Drag :: struct {}
 Input_Command_Sort_By_Rank :: struct {}
 Input_Command_Sort_By_Suite :: struct {}
+Input_Command_Select_Blind :: struct {
+	blind: c.Blind,
+}
 
 handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 	if ctx.screen.in_transition {

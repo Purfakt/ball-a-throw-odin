@@ -16,7 +16,7 @@ init_menu_screen :: proc() -> Screen {
 
 update_menu_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	if rl.IsKeyPressed(.SPACE) {
-		transition_to_game_play(ctx)
+		transition_to_ante(ctx)
 	}
 }
 

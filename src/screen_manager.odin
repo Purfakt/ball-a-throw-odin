@@ -16,10 +16,13 @@ RunData :: struct {
 	deck:              c.Deck,
 	hands_per_blind:   i8,
 	discard_per_blind: i8,
+	current_ante:      c.Ante,
+	current_blind:     c.Blind,
 }
 
 ScreenData :: union {
 	^MainMenuData,
+	^AnteData,
 	^GamePlayData,
 }
 
@@ -74,5 +77,11 @@ transition_to :: proc(ctx: ^GameContext, next_screen_proc: proc(_: ^GameContext)
 transition_to_game_play :: proc(ctx: ^GameContext) {
 	transition_to(ctx, proc(ctx: ^GameContext) -> Screen {
 		return init_game_play_screen(ctx.run_data)
+	})
+}
+
+transition_to_ante :: proc(ctx: ^GameContext) {
+	transition_to(ctx, proc(ctx: ^GameContext) -> Screen {
+		return init_ante_screen(ctx.run_data)
 	})
 }
