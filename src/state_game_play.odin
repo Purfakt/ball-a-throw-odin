@@ -3,6 +3,7 @@ package game
 import "core:log"
 import "core:math"
 import "core:math/linalg"
+import "core:slice"
 import "core:sort"
 import c "core_game"
 import hm "handle_map"
@@ -131,6 +132,9 @@ play_selected_cards :: proc(ms: ^MS_GamePlay) {
 			append(&ms.played_pile, handle)
 		}
 	}
+
+	slice.reverse(ms.played_pile[:])
+
 	c.empty_pile(&ms.selected_cards)
 	ms.hands_played += 1
 
@@ -209,7 +213,7 @@ hand_sort_less_by_rank :: proc(it: sort.Interface, i, j: int) -> bool {
 	card_a := hm.get(ctx.deck, ctx.pile[i])
 	card_b := hm.get(ctx.deck, ctx.pile[j])
 
-	return card_a.data.rank < card_b.data.rank
+	return card_a.data.rank > card_b.data.rank
 }
 
 hand_sort_less_by_suite :: proc(it: sort.Interface, i, j: int) -> bool {
@@ -221,7 +225,7 @@ hand_sort_less_by_suite :: proc(it: sort.Interface, i, j: int) -> bool {
 	if card_a.data.suite != card_b.data.suite {
 		return card_a.data.suite < card_b.data.suite
 	}
-	return card_a.data.rank < card_b.data.rank
+	return card_a.data.rank > card_b.data.rank
 }
 
 sort_hand :: proc(ms: ^MS_GamePlay) {
@@ -242,8 +246,6 @@ sort_hand :: proc(ms: ^MS_GamePlay) {
 	case .BySuite:
 		sorter.less = hand_sort_less_by_suite
 		sort.sort(sorter)
-	case .Manual:
-		return
 	}
 }
 
@@ -611,7 +613,6 @@ process_command :: proc(ms: ^MS_GamePlay, command: Input_Command) {
 		ms.dragged_card_handle = {}
 		ms.drag_start_index = -1
 		ms.drop_preview_index = -1
-		ms.sort_method = .Manual
 	case Input_Command_Sort_By_Rank:
 		ms.sort_method = .ByRank
 		sort_hand(ms)

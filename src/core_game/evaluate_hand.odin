@@ -42,14 +42,14 @@ contains_straight :: proc(cards: []CardData) -> bool {
 
 	is_normal_straight := unique_ranks[4] - unique_ranks[0] == 4
 
-	is_ace_high_straight :=
-		unique_ranks[0] == 1 &&
-		unique_ranks[1] == 10 &&
-		unique_ranks[2] == 11 &&
-		unique_ranks[3] == 12 &&
-		unique_ranks[4] == 13
+	is_ace_low_straight :=
+		unique_ranks[0] == 2 &&
+		unique_ranks[1] == 3 &&
+		unique_ranks[2] == 4 &&
+		unique_ranks[3] == 5 &&
+		unique_ranks[4] == 14
 
-	return is_normal_straight || is_ace_high_straight
+	return is_normal_straight || is_ace_low_straight
 }
 
 same_rank_amount :: proc(cards: []CardData) -> (u8, u8) {

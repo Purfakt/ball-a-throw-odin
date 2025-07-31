@@ -4,7 +4,6 @@ import hm "../handle_map"
 
 
 Rank :: enum {
-	Ace,
 	Two,
 	Three,
 	Four,
@@ -17,6 +16,7 @@ Rank :: enum {
 	Jack,
 	Queen,
 	King,
+	Ace,
 }
 
 Suite :: enum {
@@ -61,7 +61,6 @@ Hands :: enum {
 }
 
 SortMethod :: enum {
-	Manual,
 	ByRank,
 	BySuite,
 }
@@ -74,7 +73,6 @@ SuiteColor := [Suite][4]u8 {
 }
 
 RankValue := [Rank]u8 {
-	.Ace   = 1,
 	.Two   = 2,
 	.Three = 3,
 	.Four  = 4,
@@ -87,10 +85,10 @@ RankValue := [Rank]u8 {
 	.Jack  = 11,
 	.Queen = 12,
 	.King  = 13,
+	.Ace   = 14,
 }
 
 RankChip := [Rank]u8 {
-	.Ace   = 10,
 	.Two   = 2,
 	.Three = 3,
 	.Four  = 4,
@@ -103,10 +101,10 @@ RankChip := [Rank]u8 {
 	.Jack  = 10,
 	.Queen = 10,
 	.King  = 10,
+	.Ace   = 10,
 }
 
 RankString := [Rank]string {
-	.Ace   = "A",
 	.Two   = "2",
 	.Three = "3",
 	.Four  = "4",
@@ -119,10 +117,10 @@ RankString := [Rank]string {
 	.Jack  = "J",
 	.Queen = "Q",
 	.King  = "K",
+	.Ace   = "A",
 }
 
 IsFace := [Rank]bool {
-	.Ace   = false,
 	.Two   = false,
 	.Three = false,
 	.Four  = false,
@@ -135,6 +133,7 @@ IsFace := [Rank]bool {
 	.Jack  = true,
 	.Queen = true,
 	.King  = true,
+	.Ace   = false,
 }
 
 HandString := [HandType]string {

@@ -1,5 +1,6 @@
 package core_game
 
+import "core:slice"
 import "core:testing"
 
 @(test)
@@ -187,147 +188,155 @@ test_same_rank :: proc(t: ^testing.T) {
 	assert_contextless(a_five_of_a_kind == 5 && b_five_of_a_kind == 0)
 	assert_contextless(a_none == 0 && b_none == 0)
 }
-// @(test)
-// test_check_hand :: proc(t: ^testing.T) {
-// 	high_card := []CardData {
-// 		{.King, .Heart},
-// 		{.Two, .Spade},
-// 		{.Five, .Club},
-// 		{.Nine, .Diamond},
-// 		{.Jack, .Heart},
-// 	}
-// 	pair := []CardData {
-// 		{.King, .Heart},
-// 		{.King, .Spade},
-// 		{.Five, .Club},
-// 		{.Nine, .Diamond},
-// 		{.Jack, .Heart},
-// 	}
-// 	two_pair := []CardData {
-// 		{.King, .Heart},
-// 		{.King, .Spade},
-// 		{.Nine, .Club},
-// 		{.Nine, .Diamond},
-// 		{.Jack, .Heart},
-// 	}
-// 	three_of_a_kind := []CardData {
-// 		{.King, .Heart},
-// 		{.King, .Spade},
-// 		{.King, .Club},
-// 		{.Nine, .Diamond},
-// 		{.Jack, .Heart},
-// 	}
-// 	straight := []CardData {
-// 		{.Five, .Heart},
-// 		{.Six, .Spade},
-// 		{.Seven, .Club},
-// 		{.Eight, .Diamond},
-// 		{.Nine, .Heart},
-// 	}
-// 	low_ace_straight := []CardData {
-// 		{.Ace, .Heart},
-// 		{.Two, .Spade},
-// 		{.Three, .Club},
-// 		{.Four, .Diamond},
-// 		{.Five, .Heart},
-// 	}
-// 	flush := []CardData {
-// 		{.Two, .Diamond},
-// 		{.Five, .Diamond},
-// 		{.Nine, .Diamond},
-// 		{.Jack, .Diamond},
-// 		{.King, .Diamond},
-// 	}
-// 	full_house := []CardData {
-// 		{.King, .Heart},
-// 		{.King, .Spade},
-// 		{.King, .Club},
-// 		{.Nine, .Diamond},
-// 		{.Nine, .Heart},
-// 	}
-// 	four_of_a_kind := []CardData {
-// 		{.King, .Heart},
-// 		{.King, .Spade},
-// 		{.King, .Club},
-// 		{.King, .Diamond},
-// 		{.Jack, .Heart},
-// 	}
-// 	straight_flush := []CardData {
-// 		{.Five, .Club},
-// 		{.Six, .Club},
-// 		{.Seven, .Club},
-// 		{.Eight, .Club},
-// 		{.Nine, .Club},
-// 	}
-// 	royal_flush := []CardData {
-// 		{.Ten, .Spade},
-// 		{.Jack, .Spade},
-// 		{.Queen, .Spade},
-// 		{.King, .Spade},
-// 		{.Ace, .Spade},
-// 	}
-// 	five_of_a_kind := []CardData {
-// 		{.Ace, .Heart},
-// 		{.Ace, .Spade},
-// 		{.Ace, .Club},
-// 		{.Ace, .Diamond},
-// 		{.Ace, .Heart},
-// 	}
-// 	flush_house := []CardData {
-// 		{.King, .Heart},
-// 		{.King, .Heart},
-// 		{.King, .Heart},
-// 		{.Nine, .Heart},
-// 		{.Nine, .Heart},
-// 	}
-// 	flush_five := []CardData {
-// 		{.Ace, .Heart},
-// 		{.Ace, .Heart},
-// 		{.Ace, .Heart},
-// 		{.Ace, .Heart},
-// 		{.Ace, .Heart},
-// 	}
+@(test)
+test_check_hand :: proc(t: ^testing.T) {
+	high_card := []CardData {
+		{.King, .Heart},
+		{.Two, .Spade},
+		{.Five, .Club},
+		{.Nine, .Diamond},
+		{.Jack, .Heart},
+	}
+	pair := []CardData {
+		{.King, .Heart},
+		{.King, .Spade},
+		{.Five, .Club},
+		{.Nine, .Diamond},
+		{.Jack, .Heart},
+	}
+	two_pair := []CardData {
+		{.King, .Heart},
+		{.King, .Spade},
+		{.Nine, .Club},
+		{.Nine, .Diamond},
+		{.Jack, .Heart},
+	}
+	three_of_a_kind := []CardData {
+		{.King, .Heart},
+		{.King, .Spade},
+		{.King, .Club},
+		{.Nine, .Diamond},
+		{.Jack, .Heart},
+	}
+	straight := []CardData {
+		{.Five, .Heart},
+		{.Six, .Spade},
+		{.Seven, .Club},
+		{.Eight, .Diamond},
+		{.Nine, .Heart},
+	}
+	low_ace_straight := []CardData {
+		{.Ace, .Heart},
+		{.Two, .Spade},
+		{.Three, .Club},
+		{.Four, .Diamond},
+		{.Five, .Heart},
+	}
+	flush := []CardData {
+		{.Two, .Diamond},
+		{.Five, .Diamond},
+		{.Nine, .Diamond},
+		{.Jack, .Diamond},
+		{.King, .Diamond},
+	}
+	full_house := []CardData {
+		{.King, .Heart},
+		{.King, .Spade},
+		{.King, .Club},
+		{.Nine, .Diamond},
+		{.Nine, .Heart},
+	}
+	four_of_a_kind := []CardData {
+		{.King, .Heart},
+		{.King, .Spade},
+		{.King, .Club},
+		{.King, .Diamond},
+		{.Jack, .Heart},
+	}
+	straight_flush := []CardData {
+		{.Five, .Club},
+		{.Six, .Club},
+		{.Seven, .Club},
+		{.Eight, .Club},
+		{.Nine, .Club},
+	}
+	royal_flush := []CardData {
+		{.Ten, .Spade},
+		{.Jack, .Spade},
+		{.Queen, .Spade},
+		{.King, .Spade},
+		{.Ace, .Spade},
+	}
+	five_of_a_kind := []CardData {
+		{.Ace, .Heart},
+		{.Ace, .Spade},
+		{.Ace, .Club},
+		{.Ace, .Diamond},
+		{.Ace, .Heart},
+	}
+	flush_house := []CardData {
+		{.King, .Heart},
+		{.King, .Heart},
+		{.King, .Heart},
+		{.Nine, .Heart},
+		{.Nine, .Heart},
+	}
+	flush_five := []CardData {
+		{.Ace, .Heart},
+		{.Ace, .Heart},
+		{.Ace, .Heart},
+		{.Ace, .Heart},
+		{.Ace, .Heart},
+	}
 
-// 	empty_hand: []CardData
-// 	one_card := []CardData{{.Ace, .Heart}}
-// 	six_cards := []CardData {
-// 		{.Ace, .Heart},
-// 		{.Two, .Heart},
-// 		{.Three, .Heart},
-// 		{.Four, .Heart},
-// 		{.Five, .Heart},
-// 		{.Six, .Heart},
-// 	}
+	empty_hand: []CardData
+	one_card := []CardData{{.Ace, .Heart}}
+	six_cards := []CardData {
+		{.Ace, .Heart},
+		{.Two, .Heart},
+		{.Three, .Heart},
+		{.Four, .Heart},
+		{.Five, .Heart},
+		{.Six, .Heart},
+	}
 
-// 	expect_hand :: proc(cards: []CardData, expected_hand: HandType, loc := #caller_location) {
-// 		hand, ok := evaluate_hand(cards)
-// 		assert_contextless(ok, "check_hand should have returned ok=true", loc)
-// 		assert_contextless(hand == expected_hand, "Incorrect hand detected.", loc)
-// 	}
+	evaluate :: proc(cards: []CardData) -> (hand: EvaluatedHand, ok: bool) {
+		instances := slice.mapper(cards, proc(data: CardData) -> CardInstance {
+			return CardInstance{data = data}
+		})
+		defer delete(instances)
+		return evaluate_hand(instances)
+	}
 
-// 	expect_hand(high_card, .HighCard)
-// 	expect_hand(pair, .Pair)
-// 	expect_hand(two_pair, .TwoPair)
-// 	expect_hand(three_of_a_kind, .ThreeOfAKind)
-// 	expect_hand(straight, .Straight)
-// 	expect_hand(low_ace_straight, .Straight)
-// 	expect_hand(flush, .Flush)
-// 	expect_hand(full_house, .FullHouse)
-// 	expect_hand(four_of_a_kind, .FourOfAKind)
-// 	expect_hand(straight_flush, .StraightFlush)
-// 	expect_hand(royal_flush, .RoyalFlush)
+	expect_hand :: proc(cards: []CardData, expected_hand: HandType, loc := #caller_location) {
+		hand, ok := evaluate(cards)
+		assert_contextless(ok, "evaluate_hand should have returned ok=true", loc)
+		assert_contextless(hand.hand_type == expected_hand, "Incorrect hand detected.", loc)
+	}
 
-// 	expect_hand(five_of_a_kind, .FiveOfAKind)
-// 	expect_hand(flush_house, .FlushHouse)
-// 	expect_hand(flush_five, .FlushFive)
+	expect_nok :: proc(cards: []CardData, message: string, loc := #caller_location) {
+		_, ok := evaluate(cards)
+		assert_contextless(!ok, message, loc)
+	}
 
-// 	_, ok_empty := evaluate_hand(empty_hand)
-// 	assert_contextless(!ok_empty, "Empty hand should not be ok")
+	expect_hand(one_card, .HighCard)
+	expect_hand(high_card, .HighCard)
+	expect_hand(pair, .Pair)
+	expect_hand(two_pair, .TwoPair)
+	expect_hand(three_of_a_kind, .ThreeOfAKind)
+	expect_hand(straight, .Straight)
+	expect_hand(low_ace_straight, .Straight)
+	expect_hand(flush, .Flush)
+	expect_hand(full_house, .FullHouse)
+	expect_hand(four_of_a_kind, .FourOfAKind)
+	expect_hand(straight_flush, .StraightFlush)
+	expect_hand(royal_flush, .RoyalFlush)
 
-// 	_, ok_six := evaluate_hand(six_cards)
-// 	assert_contextless(!ok_six, "Hand with six cards should not be ok")
+	expect_hand(five_of_a_kind, .FiveOfAKind)
+	expect_hand(flush_house, .FlushHouse)
+	expect_hand(flush_five, .FlushFive)
 
-// 	hand_one, ok_one := evaluate_hand(one_card)
-// 	assert_contextless(ok_one, "Hand with one card should be ok")
-// 	assert_contextless(hand_one == .HighCard, "Hand with one card should be HighCard")
-// }
+	expect_nok(empty_hand, "Empty hand should not be ok")
+
+	expect_nok(six_cards, "Hand with six cards should not be ok")
+}
