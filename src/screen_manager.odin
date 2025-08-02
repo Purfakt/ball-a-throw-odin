@@ -18,6 +18,7 @@ RunData :: struct {
 	discard_per_blind: i8,
 	current_ante:      c.Ante,
 	current_blind:     c.Blind,
+	money:             i32,
 }
 
 ScreenData :: union {

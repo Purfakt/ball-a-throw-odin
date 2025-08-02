@@ -64,26 +64,7 @@ draw_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 		draw_updating_score(state.current_chips, state.base_mult, ui)
 	}
 
-	draw_blind_info(data, ui)
-}
-
-draw_blind_info :: proc(data: ^GamePlayData, ui: UiContext) {
-	blind_score := c.score_at_least(data.run_data.current_blind, data.run_data.current_ante)
-	current_score_text := fmt.ctprintf("Score: %v", data.current_score)
-	blind_score_text := fmt.ctprintf("Blind: %v", blind_score)
-	hands_text := fmt.ctprintf("Hands: %v", data.run_data.hands_per_blind - data.hands_played)
-	discards_text := fmt.ctprintf(
-		"Discards: %v",
-		data.run_data.discard_per_blind - data.discards_used,
-	)
-
-	info_area := rl.Rectangle{20, 20, 250, 140}
-	info_rects := vstack(info_area, 4, 5, context.temp_allocator)
-	rl.DrawText(current_score_text, i32(info_rects[0].x), i32(info_rects[0].y), 30, rl.WHITE)
-	rl.DrawText(blind_score_text, i32(info_rects[1].x), i32(info_rects[1].y), 30, rl.WHITE)
-	rl.DrawText(hands_text, i32(info_rects[2].x), i32(info_rects[2].y), 30, rl.WHITE)
-	rl.DrawText(discards_text, i32(info_rects[3].x), i32(info_rects[3].y), 30, rl.WHITE)
-
+	draw_info(data.run_data, data, ui)
 }
 
 draw_updating_score :: proc(chips, mult: i64, ui: UiContext) {

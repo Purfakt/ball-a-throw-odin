@@ -39,16 +39,25 @@ update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 		current_blind := ctx.run_data.current_blind
 		current_ante := ctx.run_data.current_ante
 
+		earnings := i8(0)
+
 		if current_blind == .Boss && current_ante != .Eight {
 			ctx.run_data.current_blind = .Little
+			earnings += 5
 			ctx.run_data.current_ante = c.Ante(int(current_ante) + 1)
 		} else if current_blind == .Little {
 			ctx.run_data.current_blind = .Big
+			earnings += 3
 		} else if current_blind == .Big {
 			ctx.run_data.current_blind = .Boss
+			earnings += 4
 		} else {
 			// TODO: won the game
 		}
+
+		earnings += ctx.run_data.hands_per_blind - data.hands_played
+		earnings += i8(max(5, ctx.run_data.money / 5))
+		ctx.run_data.money += i32(earnings)
 		transition_to_ante(ctx)
 	}
 

@@ -160,6 +160,8 @@ draw_blind_panel :: proc(
 
 	score_text := fmt.ctprintf("%v", blind_data.score)
 	center_text_in_rect(score_text, panel_rects[3], 36, {255, 80, 80, 255})
+
+	draw_info(ctx.run_data, nil, ui)
 }
 
 

@@ -71,6 +71,7 @@ game_init :: proc() -> ^GameContext {
 	run_data.deck = c.init_deck()
 	run_data.discard_per_blind = 3
 	run_data.hands_per_blind = 3
+	run_data.money = 4
 
 	gm^ = GameContext {
 		run_data = run_data,
