@@ -89,10 +89,11 @@ init_game_play_screen :: proc(run_data: ^RunData) -> Screen {
 
 
 	state := Screen {
-		data   = data,
-		draw   = draw_game_play_screen,
-		update = update_game_play_screen,
-		delete = delete_game_play_data,
+		data     = data,
+		draw     = draw_game_play_screen,
+		update   = update_game_play_screen,
+		delete   = delete_game_play_data,
+		uses_hud = true,
 	}
 
 	next_hand(state.data.(^GamePlayData))

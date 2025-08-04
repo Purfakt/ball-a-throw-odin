@@ -34,8 +34,13 @@ update :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 
 draw :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	rl.BeginDrawing()
+	rl.ClearBackground(rl.DARKGREEN)
+	if ctx.screen.uses_hud {
+		draw_hud(ctx, ui)
+	}
 
 	ctx.screen.draw(ctx, ui, dt)
+
 	if ctx.screen.in_transition {draw_transition(ctx.screen.transition.fade)}
 	rl.EndDrawing()
 }
@@ -43,8 +48,10 @@ draw :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 @(export)
 game_update :: proc(ctx: ^GameContext) {
 	dt := rl.GetFrameTime()
-	ui := UiContext{f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight()), rl.GetMousePosition()}
-
+	ui := UiContext {
+		rl.GetMousePosition(),
+		calculate_main_layout(f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())),
+	}
 	update(ctx, ui, dt)
 	draw(ctx, ui, dt)
 	free_all(context.temp_allocator)

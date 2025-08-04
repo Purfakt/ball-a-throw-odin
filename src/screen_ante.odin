@@ -47,6 +47,7 @@ init_ante_screen :: proc(run_data: ^RunData) -> Screen {
 		draw = draw_ante_screen,
 		update = update_ante_screen,
 		delete = delete_ante_screen,
+		uses_hud = true,
 	}
 }
 
@@ -62,16 +63,21 @@ update_ante_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	data, ok := ctx.screen.data.(^AnteData)
 	if !ok {return}
 
-	panel_width := ui.w / 4
+	x := ui.layout.center_area.x
+	y := ui.layout.center_area.y
+	w := ui.layout.center_area.width
+	h := ui.layout.center_area.height
+
+	panel_width := w / 4
 	padding := f32(20.0)
-	start_x := (ui.w / 2) - (panel_width * 1.5) - padding
+	start_x := (w / 2) - (panel_width * 1.5) - padding
 
 	for _, i in c.Blind {
 		blind_data := &data.blinds[i]
 		if blind_data.status == .Selectable {
-			panel_x := start_x + (f32(i) * (panel_width + padding))
-			panel_y := (ui.h / 2) - ((ui.h * 0.7) / 2)
-			panel_rect := rl.Rectangle{panel_x, panel_y, panel_width, ui.h * 0.7}
+			panel_x := x + start_x + (f32(i) * (panel_width + padding))
+			panel_y := y + (h / 2) - ((h * 0.7) / 2)
+			panel_rect := rl.Rectangle{panel_x, panel_y, panel_width, h * 0.7}
 			button_rect := vstack(panel_rect, 5, 10, context.temp_allocator)[0]
 
 			if do_status_button(ctx, ui, "Select", blind_data.status, button_rect) {
@@ -160,8 +166,6 @@ draw_blind_panel :: proc(
 
 	score_text := fmt.ctprintf("%v", blind_data.score)
 	center_text_in_rect(score_text, panel_rects[3], 36, {255, 80, 80, 255})
-
-	draw_info(ctx.run_data, nil, ui)
 }
 
 
@@ -169,16 +173,19 @@ draw_ante_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	data, ok := ctx.screen.data.(^AnteData)
 	if !ok {return}
 
-	rl.ClearBackground(rl.DARKGREEN)
+	x := ui.layout.center_area.x
+	y := ui.layout.center_area.y
+	w := ui.layout.center_area.width
+	h := ui.layout.center_area.height
 
-	panel_width := ui.w / 4
-	panel_height := ui.h * 0.7
+	panel_width := w / 4
+	panel_height := h * 0.7
 	padding := f32(20.0)
-	start_x := (ui.w / 2) - (panel_width * 1.5) - padding
+	start_x := x + (w / 2) - (panel_width * 1.5) - padding
 
 	for i in 0 ..< 3 {
 		panel_x := start_x + (f32(i) * (panel_width + padding))
-		panel_y := (ui.h / 2) - (panel_height / 2)
+		panel_y := y + (h / 2) - (panel_height / 2)
 		panel_rect := rl.Rectangle{panel_x, panel_y, panel_width, panel_height}
 
 		draw_blind_panel(ctx, ui, &data.blinds[i], panel_rect)

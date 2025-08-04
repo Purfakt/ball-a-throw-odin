@@ -11,6 +11,7 @@ init_menu_screen :: proc() -> Screen {
 		draw = draw_menu_screen,
 		update = update_menu_screen,
 		delete = delete_menu_screen,
+		uses_hud = false,
 	}
 }
 
@@ -21,8 +22,8 @@ update_menu_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 }
 
 draw_menu_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
-	w := i32(ui.w)
-	h := i32(ui.h)
+	w := i32(ui.layout.full_screen.width)
+	h := i32(ui.layout.full_screen.height)
 	rl.ClearBackground(rl.BLACK)
 	title_text_font_size := i32(36)
 	title_text := fmt.ctprintf("Ball-A-Throw")

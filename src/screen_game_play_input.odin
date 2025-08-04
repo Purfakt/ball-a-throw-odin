@@ -49,7 +49,7 @@ handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 
 	if rl.IsMouseButtonPressed(.LEFT) {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(data, i)
+			target_layout, card_handle := get_card_hand_target_layout(data, i, ui)
 			if rl.CheckCollisionPointRec(ui.mouse_pos, target_layout.target_rect) {
 				if _, is_selecting_cards := phase.(PhaseSelectingCards); is_selecting_cards {
 					data.is_potential_drag = true
@@ -90,7 +90,7 @@ handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 
 	if !data.is_dragging && !data.is_potential_drag {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(data, i)
+			target_layout, card_handle := get_card_hand_target_layout(data, i, ui)
 			if rl.CheckCollisionPointRec(ui.mouse_pos, target_layout.target_rect) {
 				data.hovered_card = card_handle
 				break

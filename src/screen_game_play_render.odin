@@ -36,7 +36,7 @@ draw_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 	played_size := i32(len(data.played_pile))
 
 	for i := i32(0); i < played_size; i += 1 {
-		_, card_handle := get_card_table_target_layout(data, i)
+		_, card_handle := get_card_table_target_layout(data, i, ui)
 		card_instance := hm.get(&data.run_data.deck, card_handle)
 
 		if card_instance == nil {
@@ -69,14 +69,19 @@ draw_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 
 draw_updating_score :: proc(chips, mult: i64, ui: UiContext) {
 	score_text := fmt.ctprintf("%v x %v = %v", chips, mult, chips * mult)
-	score_area := rl.Rectangle{0, ui.h / 2 + 80, ui.w, 40}
+	score_area := rl.Rectangle {
+		ui.layout.center_area.x,
+		ui.layout.center_area.y,
+		ui.layout.center_area.width,
+		ui.layout.center_area.height - (2 * CARD_HEIGHT_F),
+	}
 	center_text_in_rect(score_text, score_area, 40, rl.WHITE)
 }
 
 draw_hand_indicator :: proc(hand: c.HandType, ui: UiContext) {
 	if hand != .None {
 		hand_text := fmt.ctprint(c.HandString[hand])
-		indicator_area := rl.Rectangle{0, 40, ui.w, 30}
+		indicator_area := rl.Rectangle{0, 40, ui.layout.center_area.width, 30}
 		center_text_in_rect(hand_text, indicator_area, 30, rl.GOLD)
 	}
 }
@@ -119,8 +124,8 @@ draw_play_discard_buttons :: proc(ui: UiContext) {
 }
 
 draw_game_over :: proc(data: ^GamePlayData, ui: UiContext) {
-	w := i32(ui.w)
-	h := i32(ui.h)
+	w := i32(ui.layout.full_screen.width)
+	h := i32(ui.layout.full_screen.height)
 	rl.DrawRectangle(0, 0, w, h, {0, 0, 0, 100})
 
 	game_over_font_size := i32(112)
@@ -128,7 +133,7 @@ draw_game_over :: proc(data: ^GamePlayData, ui: UiContext) {
 
 	margin := i32(20)
 	total_height := f32(game_over_font_size + margin + score_font_size)
-	game_over_area := rl.Rectangle{0, ui.h / 2 - total_height / 2, ui.w, total_height}
+	game_over_area := rl.Rectangle{0, f32(h) / 2 - total_height / 2, f32(w), total_height}
 	game_over_rects := vstack(game_over_area, 2, f32(margin), context.temp_allocator)
 	defer delete(game_over_rects)
 
@@ -138,37 +143,49 @@ draw_game_over :: proc(data: ^GamePlayData, ui: UiContext) {
 }
 
 get_sort_rank_button_rect :: proc(ui: UiContext) -> rl.Rectangle {
-	button_w, button_h := 150, 50
-	button_y := ui.h - f32(CARD_HEIGHT) - f32(button_h) - 60
-	return {ui.w / 2 + 20, button_y, f32(button_w), f32(button_h)}
+	w, h := 150, 50
+	x := ui.layout.center_area.x + ui.layout.center_area.width / 2 + 20
+	y := ui.layout.center_area.y + ui.layout.center_area.height - f32(CARD_HEIGHT) - f32(h) - 60
+	return {x, y, f32(w), f32(h)}
 }
 
 get_sort_suite_button_rect :: proc(ui: UiContext) -> rl.Rectangle {
-	button_w, button_h := 150, 50
-	button_y := ui.h - f32(CARD_HEIGHT) - f32(button_h) - 60
-	return {ui.w / 2 - f32(button_w) - 20, button_y, f32(button_w), f32(button_h)}
+	w, h := 150, 50
+	x := ui.layout.center_area.x + ui.layout.center_area.width / 2 - f32(w) - 20
+	y := ui.layout.center_area.y + ui.layout.center_area.height - f32(CARD_HEIGHT) - f32(h) - 60
+	return {x, y, f32(w), f32(h)}
 }
 
 get_play_button_rect :: proc(ui: UiContext) -> rl.Rectangle {
-	button_w, button_h := 150, 50
-	button_y := ui.h - f32(CARD_HEIGHT) - f32(CARD_MARGIN) + f32(button_h)
-	button_x := ui.w - f32(button_w) - 20
+	w, h := 150, 50
+	y :=
+		ui.layout.center_area.y +
+		ui.layout.center_area.height -
+		f32(CARD_HEIGHT) -
+		f32(CARD_MARGIN) +
+		f32(h)
+	x := ui.layout.center_area.x + ui.layout.center_area.width - f32(w) - 20
 
-	return {button_x, button_y, f32(button_w), f32(button_h)}
+	return {x, y, f32(w), f32(h)}
 }
 
 get_discard_button_rect :: proc(ui: UiContext) -> rl.Rectangle {
-	button_w, button_h := 150, 50
-	button_y := ui.h - f32(CARD_HEIGHT) - f32(CARD_MARGIN) + f32(button_h)
+	w, h := 150, 50
+	y :=
+		ui.layout.center_area.y +
+		ui.layout.center_area.height -
+		f32(CARD_HEIGHT) -
+		f32(CARD_MARGIN) +
+		f32(h)
+	x := ui.layout.center_area.x + ui.layout.center_area.width - f32(w) - 20
 
-	button_x := ui.w - f32(button_w) - 20
-
-	return {button_x, button_y - f32(button_h) - 10, f32(button_w), f32(button_h)}
+	return {x, y - f32(h) - 10, f32(w), f32(h)}
 }
 
 get_card_hand_target_layout :: proc(
 	data: ^GamePlayData,
 	i: i32,
+	ui: UiContext,
 ) -> (
 	layout: CardLayout,
 	handle: c.CardHandle,
@@ -177,15 +194,15 @@ get_card_hand_target_layout :: proc(
 
 	is_selected := c.handle_array_contains(data.selected_cards[:], handle)
 
-	w := i32(rl.GetScreenWidth())
-	h := i32(rl.GetScreenHeight())
+	w := ui.layout.center_area.width
+	h := ui.layout.center_area.height
 	center_w := w / 2
 	hand_size := i32(len(data.hand_pile))
 	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
-	start_x := center_w - (hand_w / 2)
+	start_x := i32(ui.layout.center_area.x) + i32(center_w) - (hand_w / 2)
 
 	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
-	base_y := h - CARD_MARGIN - CARD_HEIGHT
+	base_y := i32(ui.layout.center_area.y) + i32(h) - CARD_MARGIN - CARD_HEIGHT
 
 	if data.is_dragging && handle != data.dragged_card_handle {
 		logical_index := i
@@ -227,22 +244,25 @@ get_card_hand_target_layout :: proc(
 get_card_table_target_layout :: proc(
 	data: ^GamePlayData,
 	i: i32,
+	ui: UiContext,
 ) -> (
 	layout: CardLayout,
 	handle: c.CardHandle,
 ) {
 	handle = data.played_pile[i]
 
-	w := i32(rl.GetScreenWidth())
-	h := i32(rl.GetScreenHeight())
+	w := i32(ui.layout.center_area.width)
+	h := i32(ui.layout.center_area.height)
+	x := i32(ui.layout.center_area.x)
+	y := i32(ui.layout.center_area.y)
 	center_w := w / 2
 	center_h := h / 2
 	played_size := i32(len(data.played_pile))
 	hand_w := (CARD_WIDTH * played_size) + (CARD_MARGIN * (played_size - 1))
-	start_x := center_w - (hand_w / 2)
+	start_x := x + center_w - (hand_w / 2)
 
 	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
-	base_y := center_h - CARD_MARGIN - CARD_HEIGHT / 2
+	base_y := y + center_h - CARD_MARGIN - CARD_HEIGHT / 2
 
 	final_x := f32(base_x)
 	final_y := f32(base_y)

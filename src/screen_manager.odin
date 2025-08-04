@@ -10,6 +10,7 @@ Screen :: struct {
 	delete:        proc(ctx: ^GameContext),
 	in_transition: bool,
 	transition:    Transition,
+	uses_hud:      bool,
 }
 
 RunData :: struct {
