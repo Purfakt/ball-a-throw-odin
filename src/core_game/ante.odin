@@ -2,9 +2,15 @@ package core_game
 
 
 Blind :: enum {
-	Little,
+	Small,
 	Big,
 	Boss,
+}
+
+BlindStatus :: enum {
+	Selectable,
+	Upcoming,
+	Defeated,
 }
 
 Ante :: enum {
@@ -19,9 +25,21 @@ Ante :: enum {
 }
 
 BlindScaling := [Blind]i64 {
-	.Little = 100,
-	.Big    = 150,
-	.Boss   = 250,
+	.Small = 100,
+	.Big   = 150,
+	.Boss  = 250,
+}
+
+BlindText := [Blind]string {
+	.Small = "Small Blind",
+	.Big   = "Big Blind",
+	.Boss  = "Boss Blind",
+}
+
+BlindStatusText := [BlindStatus]string {
+	.Selectable = "Selectable",
+	.Upcoming   = "Upcoming",
+	.Defeated   = "Defeated",
 }
 
 AnteScaling := [Ante]i64 {

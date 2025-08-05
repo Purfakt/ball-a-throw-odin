@@ -102,11 +102,12 @@ init_game_play_screen :: proc(run_data: ^RunData) -> Screen {
 }
 
 delete_game_play_data :: proc(ctx: ^GameContext) {
-	state, ok := ctx.screen.data.(^GamePlayData)
+	data_ptr, ok := ctx.screen.data.(^GamePlayData)
 	if !ok {return}
 
-	delete(state.draw_pile)
-	delete(state.selected_cards)
-	delete(state.hand_pile)
-	delete(state.played_pile)
+	delete(data_ptr.draw_pile)
+	delete(data_ptr.selected_cards)
+	delete(data_ptr.hand_pile)
+	delete(data_ptr.played_pile)
+	free(data_ptr)
 }

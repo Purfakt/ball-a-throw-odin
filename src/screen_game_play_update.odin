@@ -5,8 +5,9 @@ import "core:math/linalg"
 import "core:slice"
 import c "core_game"
 import hm "handle_map"
+import rl "vendor:raylib"
 
-update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
+update_game_play_screen :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 	if ctx.screen.in_transition {
 		return
 	}
@@ -15,24 +16,25 @@ update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 
 	if !data_ok {return}
 
-	handle_input(ctx, ui)
+	handle_input(ctx, layout)
 
 	for command in ctx.input_commands {
-		process_command(data, command, ui)
+		process_command(data, command, layout)
 	}
 	clear(&ctx.input_commands)
 
 
 	phase := &data.phase
+	mouse_pos := rl.GetMousePosition()
 
 
 	switch &state in phase {
 	case PhaseDrawingCards:
-		update_phase_drawing_cards(data, &state, ui, dt)
+		update_phase_drawing_cards(data, &state, layout, dt)
 	case PhaseSelectingCards:
 		update_phase_selecting_cards(data, &state, dt)
 	case PhasePlayingCards:
-		update_phase_playing_cards(data, &state, ui, dt)
+		update_phase_playing_cards(data, &state, layout, dt)
 	case PhaseGameOver:
 		return
 	case PhaseWinningBlind:
@@ -42,10 +44,10 @@ update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 		earnings := i8(0)
 
 		if current_blind == .Boss && current_ante != .Eight {
-			ctx.run_data.current_blind = .Little
+			ctx.run_data.current_blind = .Small
 			earnings += 5
 			ctx.run_data.current_ante = c.Ante(int(current_ante) + 1)
-		} else if current_blind == .Little {
+		} else if current_blind == .Small {
 			ctx.run_data.current_blind = .Big
 			earnings += 3
 		} else if current_blind == .Big {
@@ -72,28 +74,32 @@ update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 		}
 
 		if data.is_dragging {
-			center_w := ui.layout.center_area.width / 2
+			center_w := layout.center_area.width / 2
 			hand_w_calc := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
-			start_x := center_w - f32(hand_w_calc / 2)
+			start_x := layout.center_area.x + center_w - f32(hand_w_calc / 2)
 			slot_width := f32(CARD_WIDTH + CARD_MARGIN)
 
-			relative_x := ui.mouse_pos.x - start_x
-			preview_index := i32(math.round(relative_x / slot_width))
+			dragged_card_center_x :=
+				mouse_pos.x + data.dragged_card_offset.x + (f32(CARD_WIDTH) / 2)
 
-			if preview_index < 0 {preview_index = 0}
-			if preview_index > hand_size {preview_index = hand_size}
+			relative_x := dragged_card_center_x - start_x
+
+			preview_index := i32(math.round((relative_x - (f32(CARD_WIDTH) / 2)) / slot_width))
+
+			preview_index = math.clamp(preview_index, 0, hand_size - 1)
+
 			data.drop_preview_index = preview_index
 		}
 
 		if data.is_dragging && handle == data.dragged_card_handle {
 			card_instance.position = {
-				ui.mouse_pos.x + data.dragged_card_offset.x,
-				ui.mouse_pos.y + data.dragged_card_offset.y,
+				mouse_pos.x + data.dragged_card_offset.x,
+				mouse_pos.y + data.dragged_card_offset.y,
 			}
 			continue
 		}
 
-		target_layout, _ := get_card_hand_target_layout(data, i, ui)
+		target_layout, _ := get_card_hand_target_layout(data, i, layout)
 		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
 
 		current_target_pos := target_pos
@@ -133,7 +139,7 @@ update_game_play_screen :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 			continue
 		}
 
-		target_layout, _ := get_card_table_target_layout(data, i, ui)
+		target_layout, _ := get_card_table_target_layout(data, i, layout)
 		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
 
 		card_instance.position = linalg.lerp(
@@ -233,7 +239,7 @@ replenish_hand_and_start_deal :: proc(data: ^GamePlayData) {
 update_phase_drawing_cards :: proc(
 	data: ^GamePlayData,
 	phase: ^PhaseDrawingCards,
-	ui: UiContext,
+	layout: Layout,
 	dt: f32,
 ) {
 	phase.deal_timer -= dt
@@ -253,7 +259,7 @@ update_phase_drawing_cards :: proc(
 		if last_card_instance == nil {
 			return
 		}
-		target_layout, _ := get_card_hand_target_layout(data, hand_size - 1, ui)
+		target_layout, _ := get_card_hand_target_layout(data, hand_size - 1, layout)
 		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
 
 		if linalg.distance(last_card_instance.position, target_pos) < 1.0 {
@@ -294,7 +300,7 @@ update_phase_selecting_cards :: proc(data: ^GamePlayData, phase: ^PhaseSelecting
 update_phase_playing_cards :: proc(
 	data: ^GamePlayData,
 	phase: ^PhasePlayingCards,
-	ui: UiContext,
+	layout: Layout,
 	dt: f32,
 ) {
 	phase.animation_timer -= dt
@@ -307,7 +313,7 @@ update_phase_playing_cards :: proc(
 		if last_card_instance == nil {
 			return
 		}
-		target_layout, _ := get_card_table_target_layout(data, played_size - 1, ui)
+		target_layout, _ := get_card_table_target_layout(data, played_size - 1, layout)
 		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
 
 		if linalg.distance(last_card_instance.position, target_pos) < 1.0 {
@@ -353,7 +359,7 @@ update_phase_playing_cards :: proc(
 	}
 }
 
-process_command :: proc(data: ^GamePlayData, command: Input_Command, ui: UiContext) {
+process_command :: proc(data: ^GamePlayData, command: Input_Command, layout: Layout) {
 	phase := &data.phase
 	_, is_selecting_cards := phase.(PhaseSelectingCards)
 	#partial switch type in command {
@@ -386,7 +392,7 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command, ui: UiConte
 		if card_instance != nil {
 			data.is_dragging = true
 			data.dragged_card_handle = type.handle
-			mouse_pos := ui.mouse_pos
+			mouse_pos := rl.GetMousePosition()
 			data.dragged_card_offset = {
 				card_instance.position.x - mouse_pos.x,
 				card_instance.position.y - mouse_pos.y,
@@ -403,10 +409,6 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command, ui: UiConte
 	case Input_Command_End_Drag:
 		if data.is_dragging {
 			drop_index := data.drop_preview_index
-
-			if drop_index > data.drag_start_index {
-				drop_index -= 1
-			}
 
 			if drop_index != data.drag_start_index {
 				old_handle := data.dragged_card_handle

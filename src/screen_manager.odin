@@ -5,9 +5,9 @@ import rl "vendor:raylib"
 
 Screen :: struct {
 	data:          ScreenData,
-	update:        proc(ctx: ^GameContext, ui: UiContext, dt: f32),
-	draw:          proc(ctx: ^GameContext, ui: UiContext, dt: f32),
-	delete:        proc(ctx: ^GameContext),
+	update:        proc(_: ^GameContext, _: Layout, dt: f32),
+	draw:          proc(_: ^GameContext, _: Layout, dt: f32),
+	delete:        proc(_: ^GameContext),
 	in_transition: bool,
 	transition:    Transition,
 	uses_hud:      bool,

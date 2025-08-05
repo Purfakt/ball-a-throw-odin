@@ -23,23 +23,23 @@ ui_camera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-update :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
+update :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 	if ctx.screen.in_transition {
 		update_transition(ctx, dt)
 		return
 	}
-	ctx.screen.update(ctx, ui, dt)
+	ctx.screen.update(ctx, layout, dt)
 }
 
 
-draw :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
+draw :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.DARKGREEN)
 	if ctx.screen.uses_hud {
-		draw_hud(ctx, ui)
+		draw_hud(ctx, layout)
 	}
 
-	ctx.screen.draw(ctx, ui, dt)
+	ctx.screen.draw(ctx, layout, dt)
 
 	if ctx.screen.in_transition {draw_transition(ctx.screen.transition.fade)}
 	rl.EndDrawing()
@@ -48,19 +48,16 @@ draw :: proc(ctx: ^GameContext, ui: UiContext, dt: f32) {
 @(export)
 game_update :: proc(ctx: ^GameContext) {
 	dt := rl.GetFrameTime()
-	ui := UiContext {
-		rl.GetMousePosition(),
-		calculate_main_layout(f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())),
-	}
-	update(ctx, ui, dt)
-	draw(ctx, ui, dt)
+	layout := calculate_main_layout(f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight()))
+	update(ctx, layout, dt)
+	draw(ctx, layout, dt)
 	free_all(context.temp_allocator)
 }
 
 @(export)
 game_init_window :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT, .WINDOW_RESIZABLE})
-	rl.InitWindow(1280, 720, "Ball-A-Throw")
+	rl.InitWindow(1920, 1080, "Ball-A-Throw")
 	rl.SetWindowPosition(600, 200)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
@@ -83,7 +80,6 @@ game_init :: proc() -> ^GameContext {
 	gm^ = GameContext {
 		run_data = run_data,
 		screen   = init_menu_screen(),
-		// state    = init_game_play_screen(run_data),
 	}
 	log.info("game_init")
 	game_hot_reloaded(gm)

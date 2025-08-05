@@ -31,7 +31,7 @@ Input_Command_Select_Blind :: struct {
 	blind: c.Blind,
 }
 
-handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
+handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 	if ctx.screen.in_transition {
 		return
 	}
@@ -47,14 +47,16 @@ handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 
 	hand_size := i32(len(data.hand_pile))
 
+	mouse_pos := rl.GetMousePosition()
+
 	if rl.IsMouseButtonPressed(.LEFT) {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(data, i, ui)
-			if rl.CheckCollisionPointRec(ui.mouse_pos, target_layout.target_rect) {
+			target_layout, card_handle := get_card_hand_target_layout(data, i, layout)
+			if is_hovered(target_layout.target_rect) {
 				if _, is_selecting_cards := phase.(PhaseSelectingCards); is_selecting_cards {
 					data.is_potential_drag = true
 					data.potential_drag_handle = card_handle
-					data.click_start_pos = ui.mouse_pos
+					data.click_start_pos = mouse_pos
 				}
 				break
 			}
@@ -70,7 +72,7 @@ handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 			data.is_potential_drag = false
 			data.potential_drag_handle = {}
 		} else {
-			delta := rl.Vector2Distance(ui.mouse_pos, data.click_start_pos)
+			delta := rl.Vector2Distance(mouse_pos, data.click_start_pos)
 			if delta > DRAG_THRESHOLD {
 				append(
 					&ctx.input_commands,
@@ -90,8 +92,8 @@ handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 
 	if !data.is_dragging && !data.is_potential_drag {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(data, i, ui)
-			if rl.CheckCollisionPointRec(ui.mouse_pos, target_layout.target_rect) {
+			target_layout, card_handle := get_card_hand_target_layout(data, i, layout)
+			if is_hovered(target_layout.target_rect) {
 				data.hovered_card = card_handle
 				break
 			}
@@ -99,24 +101,24 @@ handle_input :: proc(ctx: ^GameContext, ui: UiContext) {
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
-		play_button_rect := get_play_button_rect(ui)
-		discard_button_rect := get_discard_button_rect(ui)
-		rank_button_rect := get_sort_rank_button_rect(ui)
-		suite_button_rect := get_sort_suite_button_rect(ui)
+		play_button_rect := get_play_button_rect(layout)
+		discard_button_rect := get_discard_button_rect(layout)
+		rank_button_rect := get_sort_rank_button_rect(layout)
+		suite_button_rect := get_sort_suite_button_rect(layout)
 
-		if rl.CheckCollisionPointRec(ui.mouse_pos, play_button_rect) {
+		if is_hovered(play_button_rect) {
 			append(&ctx.input_commands, Input_Command_Play_Hand{})
 			return
 		}
-		if rl.CheckCollisionPointRec(ui.mouse_pos, discard_button_rect) {
+		if is_hovered(discard_button_rect) {
 			append(&ctx.input_commands, Input_Command_Discard_Hand{})
 			return
 		}
-		if rl.CheckCollisionPointRec(ui.mouse_pos, rank_button_rect) {
+		if is_hovered(rank_button_rect) {
 			append(&ctx.input_commands, Input_Command_Sort_By_Rank{})
 			return
 		}
-		if rl.CheckCollisionPointRec(ui.mouse_pos, suite_button_rect) {
+		if is_hovered(suite_button_rect) {
 			append(&ctx.input_commands, Input_Command_Sort_By_Suite{})
 			return
 		}
