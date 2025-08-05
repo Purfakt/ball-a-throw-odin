@@ -1,6 +1,5 @@
 package game
 
-import "core:math"
 import "core:math/linalg"
 import "core:slice"
 import c "core_game"
@@ -19,22 +18,18 @@ update_game_play_screen :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 	handle_input(ctx, layout)
 
 	for command in ctx.input_commands {
-		process_command(data, command, layout)
+		process_command(data, command)
 	}
+
 	clear(&ctx.input_commands)
 
-
-	phase := &data.phase
-	mouse_pos := rl.GetMousePosition()
-
-
-	switch &state in phase {
+	switch &state in &data.phase {
 	case PhaseDrawingCards:
-		update_phase_drawing_cards(data, &state, layout, dt)
+		update_phase_drawing_cards(data, &state, dt)
 	case PhaseSelectingCards:
 		update_phase_selecting_cards(data, &state, dt)
 	case PhasePlayingCards:
-		update_phase_playing_cards(data, &state, layout, dt)
+		update_phase_playing_cards(data, &state, dt)
 	case PhaseGameOver:
 		return
 	case PhaseWinningBlind:
@@ -63,93 +58,33 @@ update_game_play_screen :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 		transition_to_ante(ctx)
 	}
 
+	update_card_layouts(data, layout)
+
 	animation_speed: f32 = 10.0
-	hand_size := i32(len(data.hand_pile))
 
-	for i := i32(0); i < hand_size; i += 1 {
-		handle := data.hand_pile[i]
-		card_instance := hm.get(&data.run_data.deck, handle)
-		if card_instance == nil {
-			continue
-		}
-
-		if data.is_dragging {
-			center_w := layout.center_area.width / 2
-			hand_w_calc := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
-			start_x := layout.center_area.x + center_w - f32(hand_w_calc / 2)
-			slot_width := f32(CARD_WIDTH + CARD_MARGIN)
-
-			dragged_card_center_x :=
-				mouse_pos.x + data.dragged_card_offset.x + (f32(CARD_WIDTH) / 2)
-
-			relative_x := dragged_card_center_x - start_x
-
-			preview_index := i32(math.round((relative_x - (f32(CARD_WIDTH) / 2)) / slot_width))
-
-			preview_index = math.clamp(preview_index, 0, hand_size - 1)
-
-			data.drop_preview_index = preview_index
-		}
-
+	iter := hm.make_iter(&data.run_data.deck)
+	for card_instance, handle in hm.iter(&iter) {
 		if data.is_dragging && handle == data.dragged_card_handle {
+			mouse_pos := rl.GetMousePosition()
 			card_instance.position = {
 				mouse_pos.x + data.dragged_card_offset.x,
 				mouse_pos.y + data.dragged_card_offset.y,
 			}
-			continue
+		} else {
+			card_instance.position = linalg.lerp(
+				card_instance.position,
+				card_instance.target_position,
+				animation_speed * dt,
+			)
+			card_instance.rotation = linalg.lerp(
+				card_instance.rotation,
+				card_instance.target_rotation,
+				animation_speed * dt,
+			)
 		}
-
-		target_layout, _ := get_card_hand_target_layout(data, i, layout)
-		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
-
-		current_target_pos := target_pos
-		if state, ok := &phase.(PhaseDrawingCards); ok && i >= state.deal_index {
-			current_target_pos = DECK_POSITION
-		}
-
-		target_rot: f32 = 0
-		if card_instance.jiggle_timer > 0 {
-			card_instance.jiggle_timer -= dt
-
-			jiggle_phase := (JIGGLE_DURATION - card_instance.jiggle_timer) * JIGGLE_FREQUENCY
-			target_rot = linalg.sin(jiggle_phase) * JIGGLE_STRENGTH
-
-			target_rot *= (card_instance.jiggle_timer / JIGGLE_DURATION)
-		}
-
-		card_instance.position = linalg.lerp(
-			card_instance.position,
-			current_target_pos,
-			animation_speed * dt,
-		)
-		card_instance.rotation = linalg.lerp(
-			card_instance.rotation,
-			target_rot,
-			animation_speed * dt,
-		)
-	}
-
-
-	played_size := i32(len(data.played_pile))
-
-	for i := i32(0); i < played_size; i += 1 {
-		handle := data.played_pile[i]
-		card_instance := hm.get(&data.run_data.deck, handle)
-		if card_instance == nil {
-			continue
-		}
-
-		target_layout, _ := get_card_table_target_layout(data, i, layout)
-		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
-
-		card_instance.position = linalg.lerp(
-			card_instance.position,
-			target_pos,
-			animation_speed * dt,
-		)
-		card_instance.rotation = linalg.lerp(card_instance.rotation, 0, animation_speed * dt)
 	}
 }
+
 
 next_hand :: proc(data: ^GamePlayData) {
 	c.empty_pile(&data.played_pile)
@@ -236,33 +171,23 @@ replenish_hand_and_start_deal :: proc(data: ^GamePlayData) {
 }
 
 
-update_phase_drawing_cards :: proc(
-	data: ^GamePlayData,
-	phase: ^PhaseDrawingCards,
-	layout: Layout,
-	dt: f32,
-) {
-	phase.deal_timer -= dt
+update_phase_drawing_cards :: proc(data: ^GamePlayData, phase: ^PhaseDrawingCards, dt: f32) {
 	hand_size := i32(len(data.hand_pile))
 
-	if phase.deal_timer <= 0 {
-		phase.deal_timer = DEAL_DELAY
-		if phase.deal_index < hand_size {
-			phase.deal_index += 1
+	phase.deal_timer -= dt
+	if !phase.is_finished_dealing {
+
+		if phase.deal_timer <= 0 {
+			phase.deal_timer = DEAL_DELAY
+			if phase.deal_index < hand_size {
+				phase.deal_index += 1
+			} else {
+				phase.is_finished_dealing = true
+				phase.deal_timer = 0.5
+			}
 		}
-	}
-
-	if hand_size > 0 && phase.deal_index >= hand_size {
-		last_card_handle := data.hand_pile[hand_size - 1]
-		last_card_instance := hm.get(&data.run_data.deck, last_card_handle)
-
-		if last_card_instance == nil {
-			return
-		}
-		target_layout, _ := get_card_hand_target_layout(data, hand_size - 1, layout)
-		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
-
-		if linalg.distance(last_card_instance.position, target_pos) < 1.0 {
+	} else {
+		if phase.deal_timer <= 0 {
 			data.phase = PhaseSelectingCards{}
 		}
 	}
@@ -297,26 +222,13 @@ update_phase_selecting_cards :: proc(data: ^GamePlayData, phase: ^PhaseSelecting
 	}
 }
 
-update_phase_playing_cards :: proc(
-	data: ^GamePlayData,
-	phase: ^PhasePlayingCards,
-	layout: Layout,
-	dt: f32,
-) {
+update_phase_playing_cards :: proc(data: ^GamePlayData, phase: ^PhasePlayingCards, dt: f32) {
 	phase.animation_timer -= dt
 
 	played_size := i32(len(data.played_pile))
 
 	if phase.step == .DealingToTable {
-		last_card_handle := data.played_pile[played_size - 1]
-		last_card_instance := hm.get(&data.run_data.deck, last_card_handle)
-		if last_card_instance == nil {
-			return
-		}
-		target_layout, _ := get_card_table_target_layout(data, played_size - 1, layout)
-		target_pos := [2]f32{target_layout.target_rect.x, target_layout.target_rect.y}
-
-		if linalg.distance(last_card_instance.position, target_pos) < 1.0 {
+		if phase.animation_timer <= 0 {
 			phase.step = .ScoringHand
 			phase.animation_timer = 0.5
 		}
@@ -359,7 +271,7 @@ update_phase_playing_cards :: proc(
 	}
 }
 
-process_command :: proc(data: ^GamePlayData, command: Input_Command, layout: Layout) {
+process_command :: proc(data: ^GamePlayData, command: Input_Command) {
 	phase := &data.phase
 	_, is_selecting_cards := phase.(PhaseSelectingCards)
 	#partial switch type in command {
@@ -371,19 +283,16 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command, layout: Lay
 			append(&data.selected_cards, type.handle)
 		}
 		data.has_refreshed_selected_cards = true
-
 	case Input_Command_Play_Hand:
 		if !is_selecting_cards {break}
 		if data.hands_played < data.run_data.hands_per_blind {
 			play_selected_cards(data)
 		}
-
 	case Input_Command_Discard_Hand:
 		if !is_selecting_cards {break}
 		if data.discards_used < data.run_data.discard_per_blind {
 			discard_selected_cards(data)
 		}
-
 	case Input_Command_Next_Hand:
 		next_hand(data)
 	case Input_Command_Start_Drag:
@@ -405,7 +314,6 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command, layout: Lay
 				}
 			}
 		}
-
 	case Input_Command_End_Drag:
 		if data.is_dragging {
 			drop_index := data.drop_preview_index
@@ -424,7 +332,6 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command, layout: Lay
 	case Input_Command_Sort_By_Rank:
 		data.sort_method = .ByRank
 		sort_hand(data)
-
 	case Input_Command_Sort_By_Suite:
 		data.sort_method = .BySuite
 		sort_hand(data)

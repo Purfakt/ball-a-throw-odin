@@ -14,37 +14,21 @@ draw_game_play_screen :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 
 	rl.ClearBackground(rl.DARKGREEN)
 
-	hand_size := i32(len(data.hand_pile))
-	for i := i32(0); i < hand_size; i += 1 {
-		card_handle := data.hand_pile[i]
-
-		if data.is_dragging && card_handle == data.dragged_card_handle {
-			continue
-		}
-
-		card_instance := hm.get(&data.run_data.deck, card_handle)
-		draw_card(card_instance^)
-	}
-
-	if data.is_dragging {
-		card_instance := hm.get(&data.run_data.deck, data.dragged_card_handle)
-		if card_instance != nil {
-			draw_card(card_instance^)
+	for handle in data.hand_pile {
+		if card := hm.get(&data.run_data.deck, handle); card != nil {
+			draw_card(card^)
 		}
 	}
 
-	played_size := i32(len(data.played_pile))
-
-	for i := i32(0); i < played_size; i += 1 {
-		_, card_handle := get_card_table_target_layout(data, i, layout)
+	for card_handle, i in data.played_pile {
 		card_instance := hm.get(&data.run_data.deck, card_handle)
 
 		if card_instance == nil {
 			continue
 		}
-		is_scoring := c.handle_array_contains(data.scoring_cards_handles[:], card_handle)
 		draw_card(card_instance^)
-		if state, ok := data.phase.(PhasePlayingCards); ok && state.scoring_index == i {
+		if state, ok := data.phase.(PhasePlayingCards); ok && state.scoring_index >= i32(i) {
+			is_scoring := c.handle_array_contains(data.scoring_cards_handles[:], card_handle)
 			draw_card_highlight(card_instance^, is_scoring)
 		}
 	}
@@ -178,99 +162,6 @@ get_discard_button_rect :: proc(layout: Layout) -> rl.Rectangle {
 	x := layout.center_area.x + layout.center_area.width - f32(w) - 20
 
 	return {x, y - f32(h) - 10, f32(w), f32(h)}
-}
-
-get_card_hand_target_layout :: proc(
-	data: ^GamePlayData,
-	i: i32,
-	layout: Layout,
-) -> (
-	card_layout: CardLayout,
-	handle: c.CardHandle,
-) {
-	handle = data.hand_pile[i]
-
-	is_selected := c.handle_array_contains(data.selected_cards[:], handle)
-
-	w := layout.center_area.width
-	h := layout.center_area.height
-	center_w := w / 2
-	hand_size := i32(len(data.hand_pile))
-	hand_w := (CARD_WIDTH * hand_size) + (CARD_MARGIN * (hand_size - 1))
-	start_x := i32(layout.center_area.x) + i32(center_w) - (hand_w / 2)
-
-	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
-	base_y := i32(layout.center_area.y) + i32(h) - CARD_MARGIN - CARD_HEIGHT
-
-	if data.is_dragging && handle != data.dragged_card_handle {
-		logical_index := i
-		if logical_index > data.drag_start_index {
-			logical_index -= 1
-		}
-
-		effective_preview := data.drop_preview_index
-		if effective_preview > data.drag_start_index {
-			effective_preview -= 1
-		}
-
-		visual_index := logical_index
-		if logical_index >= data.drop_preview_index {
-			visual_index += 1
-		}
-
-		base_x = start_x + visual_index * (CARD_WIDTH + CARD_MARGIN)
-	}
-
-	final_x := f32(base_x)
-	final_y := f32(base_y)
-	if is_selected {
-		final_y -= f32(CARD_HEIGHT) / 5.0
-	}
-
-	card_layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
-	card_layout.target_rotation = 0
-	card_layout.font_size = CARD_FONT_SIZE
-	card_layout.color = rl.LIGHTGRAY
-
-	if data.hovered_card == handle {
-		card_layout.color = rl.WHITE
-	}
-
-	return
-}
-
-get_card_table_target_layout :: proc(
-	data: ^GamePlayData,
-	i: i32,
-	layout: Layout,
-) -> (
-	card_layout: CardLayout,
-	handle: c.CardHandle,
-) {
-	handle = data.played_pile[i]
-
-	w := i32(layout.center_area.width)
-	h := i32(layout.center_area.height)
-	x := i32(layout.center_area.x)
-	y := i32(layout.center_area.y)
-	center_w := w / 2
-	center_h := h / 2
-	played_size := i32(len(data.played_pile))
-	hand_w := (CARD_WIDTH * played_size) + (CARD_MARGIN * (played_size - 1))
-	start_x := x + center_w - (hand_w / 2)
-
-	base_x := start_x + i * (CARD_WIDTH + CARD_MARGIN)
-	base_y := y + center_h - CARD_MARGIN - CARD_HEIGHT / 2
-
-	final_x := f32(base_x)
-	final_y := f32(base_y)
-
-	card_layout.target_rect = {final_x, final_y, f32(CARD_WIDTH), f32(CARD_HEIGHT)}
-	card_layout.target_rotation = 0
-	card_layout.font_size = CARD_FONT_SIZE
-	card_layout.color = rl.LIGHTGRAY
-
-	return
 }
 
 draw_card :: proc(card_instance: c.CardInstance) {

@@ -213,14 +213,16 @@ CardData :: struct {
 }
 
 CardInstance :: struct {
-	handle:       CardHandle,
-	data:         CardData,
-	enhancement:  Enhancement,
-	seal:         Seal,
-	edition:      Edition,
-	position:     [2]f32,
-	rotation:     f32,
-	jiggle_timer: f32,
+	handle:          CardHandle,
+	data:            CardData,
+	enhancement:     Enhancement,
+	seal:            Seal,
+	edition:         Edition,
+	position:        [2]f32,
+	rotation:        f32,
+	target_position: [2]f32,
+	target_rotation: f32,
+	jiggle_timer:    f32,
 }
 
 CardHandle :: distinct hm.Handle

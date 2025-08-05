@@ -1,6 +1,7 @@
 package game
 
 import c "core_game"
+import hm "handle_map"
 import rl "vendor:raylib"
 
 Input_Command :: union {
@@ -51,8 +52,19 @@ handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 
 	if rl.IsMouseButtonPressed(.LEFT) {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(data, i, layout)
-			if is_hovered(target_layout.target_rect) {
+			card_handle := data.hand_pile[i]
+			card_instance := hm.get(&data.run_data.deck, card_handle)
+			if card_instance == nil {continue}
+
+			card_rect := rl.Rectangle {
+				card_instance.position.x,
+				card_instance.position.y,
+				CARD_WIDTH_F,
+				CARD_HEIGHT_F,
+			}
+
+			if is_hovered(card_rect) {
+
 				if _, is_selecting_cards := phase.(PhaseSelectingCards); is_selecting_cards {
 					data.is_potential_drag = true
 					data.potential_drag_handle = card_handle
@@ -84,16 +96,20 @@ handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 		}
 	}
 
-	if rl.IsMouseButtonReleased(.LEFT) {
-		if data.is_dragging {
-			append(&ctx.input_commands, Input_Command_End_Drag{})
-		}
-	}
-
 	if !data.is_dragging && !data.is_potential_drag {
 		for i := hand_size - 1; i >= 0; i -= 1 {
-			target_layout, card_handle := get_card_hand_target_layout(data, i, layout)
-			if is_hovered(target_layout.target_rect) {
+			card_handle := data.hand_pile[i]
+			card_instance := hm.get(&data.run_data.deck, card_handle)
+			if card_instance == nil {continue}
+
+			card_rect := rl.Rectangle {
+				card_instance.position.x,
+				card_instance.position.y,
+				CARD_WIDTH_F,
+				CARD_HEIGHT_F,
+			}
+
+			if is_hovered(card_rect) {
 				data.hovered_card = card_handle
 				break
 			}

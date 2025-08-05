@@ -46,8 +46,9 @@ GamePlayPhase :: union {
 }
 
 PhaseDrawingCards :: struct {
-	deal_timer: f32,
-	deal_index: i32,
+	deal_timer:          f32,
+	deal_index:          i32,
+	is_finished_dealing: bool,
 }
 
 PhaseSelectingCards :: struct {}
