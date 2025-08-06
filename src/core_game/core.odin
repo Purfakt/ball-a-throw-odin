@@ -11,5 +11,14 @@ Edition :: enum {
 }
 
 Deck :: hm.Handle_Map(CardInstance, CardHandle, 1024)
-Pile :: [dynamic]CardHandle
-Selection :: [5]CardHandle
+CardPile :: [dynamic]CardHandle
+CardSelection :: [5]CardHandle
+
+ConsumablePile :: [dynamic]Consumable
+
+EmptyConsumable :: struct {}
+
+Consumable :: union {
+	EmptyConsumable,
+	TarotData,
+}

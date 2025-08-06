@@ -20,12 +20,14 @@ RunData :: struct {
 	current_ante:      c.Ante,
 	current_blind:     c.Blind,
 	money:             i32,
+	tarot_cards:       c.ConsumablePile,
 }
 
 ScreenData :: union {
 	^MainMenuData,
 	^AnteData,
 	^GamePlayData,
+	^ShopData,
 }
 
 Transition :: struct {
@@ -85,5 +87,11 @@ transition_to_game_play :: proc(ctx: ^GameContext) {
 transition_to_ante :: proc(ctx: ^GameContext) {
 	transition_to(ctx, proc(ctx: ^GameContext) -> Screen {
 		return init_ante_screen(ctx.run_data)
+	})
+}
+
+transition_to_shop :: proc(ctx: ^GameContext) {
+	transition_to(ctx, proc(ctx: ^GameContext) -> Screen {
+		return init_shop_screen(ctx.run_data)
 	})
 }

@@ -26,7 +26,7 @@ init_deck :: proc() -> Deck {
 	return deck
 }
 
-init_drawing_pile :: proc(deck: ^Deck, draw_pile: ^Pile) {
+init_drawing_pile :: proc(deck: ^Deck, draw_pile: ^CardPile) {
 	iter := hm.make_iter(deck)
 
 	for _, h in hm.iter(&iter) {
@@ -36,7 +36,7 @@ init_drawing_pile :: proc(deck: ^Deck, draw_pile: ^Pile) {
 	rand.shuffle(draw_pile[:])
 }
 
-draw_cards_into :: proc(from: ^Pile, to: ^Pile, draw_amount: i32) {
+draw_cards_into :: proc(from: ^CardPile, to: ^CardPile, draw_amount: i32) {
 	pile_len := i32(len(from))
 	max_amount := min(pile_len, draw_amount)
 
@@ -46,7 +46,7 @@ draw_cards_into :: proc(from: ^Pile, to: ^Pile, draw_amount: i32) {
 	}
 }
 
-empty_pile :: proc(pile: ^Pile) {
+empty_pile :: proc(pile: ^CardPile) {
 	for len(pile) > 0 {
 		_ = pop_safe(pile) or_break
 	}
@@ -61,7 +61,7 @@ handle_array_contains :: proc(pile: []CardHandle, handle: CardHandle) -> bool {
 	return false
 }
 
-handle_array_remove_handle :: proc(pile: ^Pile, handle: CardHandle) -> bool {
+handle_array_remove_handle :: proc(pile: ^CardPile, handle: CardHandle) -> bool {
 	for &h, i in pile[:] {
 		if h == handle {
 			ordered_remove(pile, i)

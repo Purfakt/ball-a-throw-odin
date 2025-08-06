@@ -75,11 +75,13 @@ game_init :: proc() -> ^GameContext {
 	run_data.deck = c.init_deck()
 	run_data.discard_per_blind = 3
 	run_data.hands_per_blind = 3
-	run_data.money = 4
+	run_data.money = 50
+	// run_data.money = 4
+	run_data.tarot_cards = make(c.ConsumablePile)
 
 	gm^ = GameContext {
 		run_data = run_data,
-		screen   = init_menu_screen(),
+		screen   = init_shop_screen(run_data),
 	}
 	log.info("game_init")
 	game_hot_reloaded(gm)
@@ -105,6 +107,7 @@ game_shutdown :: proc(ctx: ^GameContext) {
 		ctx.screen.delete(ctx)
 	}
 	delete(ctx.input_commands)
+	delete(ctx.run_data.tarot_cards)
 	free(ctx)
 }
 

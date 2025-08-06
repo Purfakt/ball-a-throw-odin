@@ -16,12 +16,12 @@ GamePlayData :: struct {
 	current_score:                i64,
 	selected_hand:                c.HandType,
 	// Piles
-	draw_pile:                    c.Pile,
-	played_pile:                  c.Pile,
-	hand_pile:                    c.Pile,
-	selected_cards:               c.Pile,
+	draw_pile:                    c.CardPile,
+	played_pile:                  c.CardPile,
+	hand_pile:                    c.CardPile,
+	selected_cards:               c.CardPile,
 	// User input
-	scoring_cards_handles:        c.Selection,
+	scoring_cards_handles:        c.CardSelection,
 	hovered_card:                 c.CardHandle,
 	previous_hovered_card:        c.CardHandle,
 	has_refreshed_selected_cards: bool,
@@ -73,10 +73,10 @@ PhaseGameOver :: struct {}
 PhaseWinningBlind :: struct {}
 
 init_game_play_screen :: proc(run_data: ^RunData) -> Screen {
-	draw_pile := make(c.Pile)
-	played_pile := make(c.Pile)
-	hand_pile := make(c.Pile)
-	selected_cards := make(c.Pile)
+	draw_pile := make(c.CardPile)
+	played_pile := make(c.CardPile)
+	hand_pile := make(c.CardPile)
+	selected_cards := make(c.CardPile)
 	c.init_drawing_pile(&run_data.deck, &draw_pile)
 
 	data := new(GamePlayData)

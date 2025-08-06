@@ -8,10 +8,10 @@ import "core:testing"
 test_draw :: proc(t: ^testing.T) {
 	deck := c.init_deck()
 
-	draw_pile := make(c.Pile)
+	draw_pile := make(c.CardPile)
 	defer delete(draw_pile)
 	c.init_drawing_pile(&deck, &draw_pile)
-	hand := make(c.Pile)
+	hand := make(c.CardPile)
 	defer delete(hand)
 
 	for len(draw_pile) > 0 {

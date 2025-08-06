@@ -23,39 +23,18 @@ update_game_play_screen :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 
 	clear(&ctx.input_commands)
 
-	switch &state in &data.phase {
+	switch &phase in &data.phase {
 	case PhaseDrawingCards:
-		update_phase_drawing_cards(data, &state, dt)
+		update_phase_drawing_cards(data, &phase, dt)
 	case PhaseSelectingCards:
-		update_phase_selecting_cards(data, &state, dt)
+		update_phase_selecting_cards(data, &phase, dt)
 	case PhasePlayingCards:
-		update_phase_playing_cards(data, &state, dt)
+		update_phase_playing_cards(data, &phase, dt)
 	case PhaseGameOver:
 		return
 	case PhaseWinningBlind:
-		current_blind := ctx.run_data.current_blind
-		current_ante := ctx.run_data.current_ante
-
-		earnings := i8(0)
-
-		if current_blind == .Boss && current_ante != .Eight {
-			ctx.run_data.current_blind = .Small
-			earnings += 5
-			ctx.run_data.current_ante = c.Ante(int(current_ante) + 1)
-		} else if current_blind == .Small {
-			ctx.run_data.current_blind = .Big
-			earnings += 3
-		} else if current_blind == .Big {
-			ctx.run_data.current_blind = .Boss
-			earnings += 4
-		} else {
-			// TODO: won the game
-		}
-
-		earnings += ctx.run_data.hands_per_blind - data.hands_played
-		earnings += i8(max(5, ctx.run_data.money / 5))
-		ctx.run_data.money += i32(earnings)
-		transition_to_ante(ctx)
+		update_phase_winning_blind(data, &phase, dt)
+		transition_to_shop(ctx)
 	}
 
 	update_card_layouts(data, layout)
@@ -269,6 +248,31 @@ update_phase_playing_cards :: proc(data: ^GamePlayData, phase: ^PhasePlayingCard
 			data.phase = PhaseGameOver{}
 		}
 	}
+}
+
+update_phase_winning_blind :: proc(data: ^GamePlayData, phase: ^PhaseWinningBlind, dt: f32) {
+	current_blind := data.run_data.current_blind
+	current_ante := data.run_data.current_ante
+
+	earnings := i8(0)
+
+	if current_blind == .Boss && current_ante != .Eight {
+		data.run_data.current_blind = .Small
+		earnings += 5
+		data.run_data.current_ante = c.Ante(int(current_ante) + 1)
+	} else if current_blind == .Small {
+		data.run_data.current_blind = .Big
+		earnings += 3
+	} else if current_blind == .Big {
+		data.run_data.current_blind = .Boss
+		earnings += 4
+	} else {
+		// TODO: won the game
+	}
+
+	earnings += data.run_data.hands_per_blind - data.hands_played
+	earnings += i8(max(5, data.run_data.money / 5))
+	data.run_data.money += i32(earnings)
 }
 
 process_command :: proc(data: ^GamePlayData, command: Input_Command) {

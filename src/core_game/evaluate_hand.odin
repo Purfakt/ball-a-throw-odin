@@ -5,7 +5,7 @@ import "core:slice"
 
 EvaluatedHand :: struct {
 	hand_type:       HandType,
-	scoring_handles: Selection,
+	scoring_handles: CardSelection,
 }
 
 contains_rank :: proc(cards: []CardData, rank: Rank) -> bool {
