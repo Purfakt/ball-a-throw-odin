@@ -275,11 +275,11 @@ update_phase_winning_blind :: proc(data: ^GamePlayData, phase: ^PhaseWinningBlin
 	data.run_data.money += i32(earnings)
 }
 
-process_command :: proc(data: ^GamePlayData, command: Input_Command) {
+process_command :: proc(data: ^GamePlayData, command: InputCommand) {
 	phase := &data.phase
 	_, is_selecting_cards := phase.(PhaseSelectingCards)
 	#partial switch type in command {
-	case Input_Command_Select_Card:
+	case InputCommand_SelectCard:
 		if !is_selecting_cards {break}
 		if c.handle_array_contains(data.selected_cards[:], type.handle) {
 			c.handle_array_remove_handle(&data.selected_cards, type.handle)
@@ -287,19 +287,19 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command) {
 			append(&data.selected_cards, type.handle)
 		}
 		data.has_refreshed_selected_cards = true
-	case Input_Command_Play_Hand:
+	case InputCommand_PlayHand:
 		if !is_selecting_cards {break}
 		if data.hands_played < data.run_data.hands_per_blind {
 			play_selected_cards(data)
 		}
-	case Input_Command_Discard_Hand:
+	case InputCommand_Discard_Hand:
 		if !is_selecting_cards {break}
 		if data.discards_used < data.run_data.discard_per_blind {
 			discard_selected_cards(data)
 		}
-	case Input_Command_Next_Hand:
+	case InputCommand_NextHand:
 		next_hand(data)
-	case Input_Command_Start_Drag:
+	case InputCommand_StartDrag:
 		if !is_selecting_cards {break}
 		card_instance := hm.get(&data.run_data.deck, type.handle)
 		if card_instance != nil {
@@ -318,7 +318,7 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command) {
 				}
 			}
 		}
-	case Input_Command_End_Drag:
+	case InputCommand_EndDrag:
 		if data.is_dragging {
 			drop_index := data.drop_preview_index
 
@@ -333,11 +333,14 @@ process_command :: proc(data: ^GamePlayData, command: Input_Command) {
 		data.dragged_card_handle = {}
 		data.drag_start_index = -1
 		data.drop_preview_index = -1
-	case Input_Command_Sort_By_Rank:
+	case InputCommand_SortByRank:
 		data.sort_method = .ByRank
 		sort_hand(data)
-	case Input_Command_Sort_By_Suite:
+	case InputCommand_SortBySuite:
 		data.sort_method = .BySuite
 		sort_hand(data)
+	case InputCommand_UseTarot:
+		if !is_selecting_cards {break}
+		apply_tarot_effect(data, type.index)
 	}
 }

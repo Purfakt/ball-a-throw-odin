@@ -52,7 +52,7 @@ update_ante_screen :: proc(ctx: ^GameContext, _: Layout, dt: f32) {
 
 	for command in ctx.input_commands {
 		#partial switch cmd in command {
-		case Input_Command_Select_Blind:
+		case InputCommand_SelectBlind:
 			ctx.run_data.current_blind = cmd.blind
 			transition_to_game_play(ctx)
 		}
@@ -76,7 +76,7 @@ draw_blind_panel :: proc(ctx: ^GameContext, blind_data: ^BlindData, area: rl.Rec
 			button_color = {250, 170, 70, 255}
 		}
 		if is_clicked(rect) {
-			append(&ctx.input_commands, Input_Command_Select_Blind{blind = blind_data.type})
+			append(&ctx.input_commands, InputCommand_SelectBlind{blind = blind_data.type})
 		}
 	case .Upcoming:
 		button_color = rl.DARKGRAY

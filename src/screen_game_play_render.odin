@@ -42,6 +42,10 @@ draw_game_play_screen :: proc(ctx: ^GameContext, layout: Layout, dt: f32) {
 		draw_hand_indicator(data.selected_hand, layout)
 		draw_play_discard_buttons(layout)
 		draw_sort_buttons(layout)
+
+		if data.selected_consumable_index != -1 {
+			draw_use_tarot_button(data, layout)
+		}
 	}
 
 	if state, ok := data.phase.(PhasePlayingCards); ok {
@@ -162,6 +166,34 @@ get_discard_button_rect :: proc(layout: Layout) -> rl.Rectangle {
 	x := layout.center_area.x + layout.center_area.width - f32(w) - 20
 
 	return {x, y - f32(h) - 10, f32(w), f32(h)}
+}
+
+draw_use_tarot_button :: proc(data: ^GamePlayData, layout: Layout) {
+	button_rect := get_use_tarot_button_rect(layout)
+	button_color := rl.Color{0, 100, 200, 255}
+
+	is_valid := false
+	if data.selected_consumable_index < len(data.run_data.tarot_cards) {
+		consumable := data.run_data.tarot_cards[data.selected_consumable_index]
+		if tarot_data, ok := consumable.(c.TarotData); ok {
+			is_valid = is_tarot_usage_valid(tarot_data, data.selected_cards)
+		}
+	}
+
+	if !is_valid {
+		button_color = rl.GRAY
+	} else if is_hovered(button_rect) {
+		button_color = rl.Color{50, 150, 255, 255}
+	}
+	rl.DrawRectangleRec(button_rect, button_color)
+	center_text_in_rect("Use Tarot", button_rect, 20, rl.WHITE)
+}
+
+get_use_tarot_button_rect :: proc(layout: Layout) -> rl.Rectangle {
+	w, h := 150, 50
+	x := layout.joker_bar.x + layout.joker_bar.width - f32(w) - 20
+	y := layout.joker_bar.y - f32(h) - 10
+	return {x, y, f32(w), f32(h)}
 }
 
 draw_card :: proc(card_instance: c.CardInstance) {

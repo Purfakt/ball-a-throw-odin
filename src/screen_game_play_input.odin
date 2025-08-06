@@ -4,32 +4,37 @@ import c "core_game"
 import hm "handle_map"
 import rl "vendor:raylib"
 
-Input_Command :: union {
-	Input_Command_Select_Card,
-	Input_Command_Play_Hand,
-	Input_Command_Discard_Hand,
-	Input_Command_Next_Hand,
-	Input_Command_Start_Drag,
-	Input_Command_End_Drag,
-	Input_Command_Sort_By_Rank,
-	Input_Command_Sort_By_Suite,
-	Input_Command_Select_Blind,
+InputCommand :: union {
+	InputCommand_SelectCard,
+	InputCommand_PlayHand,
+	InputCommand_Discard_Hand,
+	InputCommand_NextHand,
+	InputCommand_StartDrag,
+	InputCommand_EndDrag,
+	InputCommand_SortByRank,
+	InputCommand_SortBySuite,
+	InputCommand_SelectBlind,
+	InputCommand_UseTarot,
 }
 
-Input_Command_Select_Card :: struct {
+InputCommand_SelectCard :: struct {
 	handle: c.CardHandle,
 }
-Input_Command_Play_Hand :: struct {}
-Input_Command_Discard_Hand :: struct {}
-Input_Command_Next_Hand :: struct {}
-Input_Command_Start_Drag :: struct {
+InputCommand_PlayHand :: struct {}
+InputCommand_Discard_Hand :: struct {}
+InputCommand_NextHand :: struct {}
+InputCommand_StartDrag :: struct {
 	handle: c.CardHandle,
 }
-Input_Command_End_Drag :: struct {}
-Input_Command_Sort_By_Rank :: struct {}
-Input_Command_Sort_By_Suite :: struct {}
-Input_Command_Select_Blind :: struct {
+InputCommand_EndDrag :: struct {}
+InputCommand_SortByRank :: struct {}
+InputCommand_SortBySuite :: struct {}
+InputCommand_SelectBlind :: struct {
 	blind: c.Blind,
+}
+
+InputCommand_UseTarot :: struct {
+	index: int,
 }
 
 handle_input :: proc(ctx: ^GameContext, layout: Layout) {
@@ -64,13 +69,12 @@ handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 			}
 
 			if is_hovered(card_rect) {
-
 				if _, is_selecting_cards := phase.(PhaseSelectingCards); is_selecting_cards {
 					data.is_potential_drag = true
 					data.potential_drag_handle = card_handle
 					data.click_start_pos = mouse_pos
 				}
-				break
+				return
 			}
 		}
 	}
@@ -79,7 +83,7 @@ handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 		if rl.IsMouseButtonReleased(.LEFT) {
 			append(
 				&ctx.input_commands,
-				Input_Command_Select_Card{handle = data.potential_drag_handle},
+				InputCommand_SelectCard{handle = data.potential_drag_handle},
 			)
 			data.is_potential_drag = false
 			data.potential_drag_handle = {}
@@ -88,7 +92,7 @@ handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 			if delta > DRAG_THRESHOLD {
 				append(
 					&ctx.input_commands,
-					Input_Command_Start_Drag{handle = data.potential_drag_handle},
+					InputCommand_StartDrag{handle = data.potential_drag_handle},
 				)
 				data.is_potential_drag = false
 				data.potential_drag_handle = {}
@@ -123,31 +127,53 @@ handle_input :: proc(ctx: ^GameContext, layout: Layout) {
 		suite_button_rect := get_sort_suite_button_rect(layout)
 
 		if is_hovered(play_button_rect) {
-			append(&ctx.input_commands, Input_Command_Play_Hand{})
+			append(&ctx.input_commands, InputCommand_PlayHand{})
 			return
 		}
 		if is_hovered(discard_button_rect) {
-			append(&ctx.input_commands, Input_Command_Discard_Hand{})
+			append(&ctx.input_commands, InputCommand_Discard_Hand{})
 			return
 		}
 		if is_hovered(rank_button_rect) {
-			append(&ctx.input_commands, Input_Command_Sort_By_Rank{})
+			append(&ctx.input_commands, InputCommand_SortByRank{})
 			return
 		}
 		if is_hovered(suite_button_rect) {
-			append(&ctx.input_commands, Input_Command_Sort_By_Suite{})
+			append(&ctx.input_commands, InputCommand_SortBySuite{})
 			return
+		}
+
+		consumable_rects := get_consumable_slot_rects(layout)
+		for rect, i in consumable_rects {
+			if is_hovered(rect) {
+				if data.selected_consumable_index == i {
+					data.selected_consumable_index = -1
+				} else {
+					data.selected_consumable_index = i
+				}
+				return
+			}
+		}
+
+		if data.selected_consumable_index != -1 {
+			use_button_rect := get_use_tarot_button_rect(layout)
+			if is_hovered(use_button_rect) {
+				append(
+					&ctx.input_commands,
+					InputCommand_UseTarot{index = data.selected_consumable_index},
+				)
+			}
 		}
 	}
 
 	if rl.IsMouseButtonReleased(.LEFT) {
 		if data.is_dragging {
-			append(&ctx.input_commands, Input_Command_End_Drag{})
+			append(&ctx.input_commands, InputCommand_EndDrag{})
 		}
 	}
 
 	if rl.IsKeyPressed(.R) {
-		append(&ctx.input_commands, Input_Command_Next_Hand{})
+		append(&ctx.input_commands, InputCommand_NextHand{})
 		return
 	}
 }

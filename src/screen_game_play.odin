@@ -24,6 +24,7 @@ GamePlayData :: struct {
 	scoring_cards_handles:        c.CardSelection,
 	hovered_card:                 c.CardHandle,
 	previous_hovered_card:        c.CardHandle,
+	selected_consumable_index:    int,
 	has_refreshed_selected_cards: bool,
 	sort_method:                  c.SortMethod,
 	// Dragging
@@ -85,6 +86,7 @@ init_game_play_screen :: proc(run_data: ^RunData) -> Screen {
 	data.played_pile = played_pile
 	data.hand_pile = hand_pile
 	data.selected_cards = selected_cards
+	data.selected_consumable_index = -1
 	data.drag_start_index = -1
 	data.blind_score = c.score_at_least(data.run_data.current_blind, data.run_data.current_ante)
 

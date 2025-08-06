@@ -7,7 +7,7 @@ import rl "vendor:raylib"
 GameContext :: struct {
 	screen:         Screen,
 	run_data:       ^RunData,
-	input_commands: [dynamic]Input_Command,
+	input_commands: [dynamic]InputCommand,
 }
 
 game_camera :: proc() -> rl.Camera2D {
